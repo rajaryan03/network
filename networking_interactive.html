@@ -1,0 +1,1735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Networking Deep Dive — Raj's Interactive Guide</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --card: #161b22;
+  --card2: #1c2333;
+  --border: #30363d;
+  --text: #e6edf3;
+  --muted: #8b949e;
+  --blue: #58a6ff;
+  --green: #3fb950;
+  --orange: #f0883e;
+  --purple: #bc8cff;
+  --red: #ff7b72;
+  --yellow: #d29922;
+  --cyan: #39d353;
+  --teal: #2dd4bf;
+  --pink: #f778ba;
+
+  /* OSI layer colors */
+  --l1: #ef4444; --l2: #f97316; --l3: #eab308;
+  --l4: #22c55e; --l5: #06b6d4; --l6: #8b5cf6; --l7: #ec4899;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ── NAV ── */
+#nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(13,17,23,0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  display: flex; align-items: center; gap: 4px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+#nav::-webkit-scrollbar { display: none; }
+
+.nav-btn {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: none; border: none;
+  color: var(--muted);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer; white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.nav-btn:hover { color: var(--text); }
+.nav-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+
+/* ── SECTIONS ── */
+.section { display: none; padding: 20px 16px; max-width: 900px; margin: 0 auto; }
+.section.active { display: block; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card h2 {
+  font-size: 18px; font-weight: 700;
+  margin-bottom: 14px; color: var(--blue);
+}
+.card h3 {
+  font-size: 15px; font-weight: 600;
+  margin: 14px 0 8px; color: var(--text);
+}
+.card p { color: var(--muted); margin-bottom: 8px; }
+
+/* ── OSI STACK ── */
+.osi-stack { display: flex; flex-direction: column; gap: 4px; }
+.osi-layer {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 16px; border-radius: 8px;
+  cursor: pointer; transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.osi-layer:hover { filter: brightness(1.2); border-color: rgba(255,255,255,0.15); }
+.osi-layer .num {
+  font-size: 22px; font-weight: 800;
+  width: 32px; text-align: center; flex-shrink: 0;
+}
+.osi-layer .name { font-weight: 700; font-size: 15px; }
+.osi-layer .desc { font-size: 12px; opacity: 0.75; margin-top: 2px; }
+.osi-layer .protos {
+  margin-left: auto; font-size: 11px;
+  background: rgba(0,0,0,0.3); padding: 3px 8px;
+  border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.osi-detail {
+  display: none; margin-top: 10px;
+  padding: 14px; background: var(--card2);
+  border-radius: 8px; font-size: 13px; color: var(--muted);
+  line-height: 1.7;
+}
+.osi-detail.open { display: block; }
+
+/* ── FLOWCHART ── */
+.flow {
+  display: flex; flex-direction: column;
+  align-items: center; gap: 0;
+}
+.flow-node {
+  width: 100%; max-width: 400px;
+  padding: 12px 18px;
+  border-radius: 10px;
+  text-align: center;
+  font-size: 13px; font-weight: 600;
+  position: relative;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.flow-node:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(88,166,255,0.3);
+}
+.flow-arrow {
+  font-size: 22px; color: var(--muted);
+  line-height: 1; padding: 2px 0;
+}
+.flow-detail {
+  display: none; width: 100%; max-width: 400px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px; margin-top: 4px;
+  font-size: 12px; color: var(--muted); line-height: 1.6;
+  text-align: left;
+}
+.flow-detail.open { display: block; }
+.flow-detail .packet-field {
+  display: flex; gap: 8px;
+  padding: 4px 0; border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+.flow-detail .packet-field:last-child { border-bottom: none; }
+.flow-detail .field-name {
+  color: var(--orange); font-weight: 600; min-width: 110px;
+}
+.flow-detail .field-val { color: var(--text); }
+
+/* ── PACKET ANATOMY ── */
+.packet-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+}
+.packet-layers {
+  display: flex; min-width: max-content;
+  gap: 0; border-radius: 8px; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.packet-seg {
+  padding: 10px 14px; text-align: center;
+  cursor: pointer; transition: filter 0.15s;
+  min-width: 80px;
+}
+.packet-seg:hover { filter: brightness(1.3); }
+.packet-seg .seg-name { font-size: 11px; font-weight: 700; }
+.packet-seg .seg-size { font-size: 10px; opacity: 0.7; margin-top: 2px; }
+.packet-popup {
+  display: none; padding: 14px;
+  background: var(--card2); border: 1px solid var(--border);
+  border-radius: 8px; margin-top: 10px;
+  font-size: 12px;
+}
+.packet-popup.open { display: block; }
+.byte-row {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 5px 0; border-bottom: 1px solid var(--border);
+}
+.byte-row:last-child { border-bottom: none; }
+.byte-label { color: var(--orange); font-weight: 600; min-width: 130px; font-size: 11px; }
+.byte-val { color: var(--text); font-size: 11px; }
+.byte-why { color: var(--muted); font-size: 10px; margin-top: 2px; }
+
+/* ── OSI BADGE INLINE ── */
+.osi-badge {
+  display: inline-block; padding: 2px 7px;
+  border-radius: 4px; font-size: 10px; font-weight: 700;
+  margin-right: 4px; vertical-align: middle;
+}
+
+/* ── MIND MAP ── */
+.mindmap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.mindmap svg { display: block; margin: 0 auto; }
+
+/* ── TABS ── */
+.tabs { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.tab-btn {
+  padding: 6px 14px; border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--card2); color: var(--muted);
+  font-size: 12px; cursor: pointer; transition: all 0.2s;
+}
+.tab-btn.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ── TIMELINE ── */
+.timeline { position: relative; padding-left: 28px; }
+.timeline::before {
+  content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+  width: 2px; background: var(--border);
+}
+.tl-item {
+  position: relative; margin-bottom: 20px;
+  cursor: pointer;
+}
+.tl-dot {
+  position: absolute; left: -22px; top: 4px;
+  width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--bg); transition: all 0.2s;
+}
+.tl-item:hover .tl-dot { transform: scale(1.3); }
+.tl-title {
+  font-weight: 600; font-size: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.tl-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.tl-body {
+  display: none; margin-top: 10px;
+  padding: 12px; background: var(--card2);
+  border-radius: 8px; font-size: 12px; color: var(--muted);
+  line-height: 1.7;
+}
+.tl-body.open { display: block; }
+.tl-body .osi-pill {
+  display: inline-block; padding: 1px 6px;
+  border-radius: 3px; font-size: 10px; font-weight: 700;
+  margin: 2px;
+}
+
+/* ── QUIZ ── */
+.quiz-q { margin-bottom: 16px; }
+.quiz-q .q-text { font-weight: 600; margin-bottom: 10px; }
+.quiz-opt {
+  display: block; width: 100%; text-align: left;
+  padding: 10px 14px; margin-bottom: 6px;
+  background: var(--card2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px;
+  font-size: 13px; cursor: pointer; transition: all 0.2s;
+}
+.quiz-opt:hover { border-color: var(--blue); }
+.quiz-opt.correct { background: rgba(63,185,80,0.15); border-color: var(--green); color: var(--green); }
+.quiz-opt.wrong { background: rgba(255,123,114,0.15); border-color: var(--red); color: var(--red); }
+.quiz-feedback { font-size: 12px; padding: 10px; border-radius: 6px; margin-top: 6px; display: none; }
+.quiz-feedback.show { display: block; }
+.quiz-feedback.good { background: rgba(63,185,80,0.1); color: var(--green); }
+.quiz-feedback.bad { background: rgba(255,123,114,0.1); color: var(--red); }
+
+/* ── UTILS ── */
+.tag {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600; margin: 2px;
+}
+.highlight { color: var(--yellow); font-weight: 600; }
+.hero {
+  text-align: center; padding: 30px 20px 20px;
+  background: linear-gradient(135deg, #0d1117 0%, #161b22 100%);
+  border-radius: 12px; margin-bottom: 20px;
+  border: 1px solid var(--border);
+}
+.hero h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+.hero p { color: var(--muted); font-size: 14px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media(max-width: 500px) { .grid2 { grid-template-columns: 1fr; } }
+.info-box {
+  background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.25);
+  border-radius: 8px; padding: 12px 14px; font-size: 13px;
+  color: var(--text); margin-bottom: 14px;
+}
+.warn-box {
+  background: rgba(240,136,62,0.08); border: 1px solid rgba(240,136,62,0.25);
+  border-radius: 8px; padding: 12px 14px; font-size: 13px;
+  color: var(--text); margin-bottom: 14px;
+}
+.progress-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin: 6px 0; }
+.progress-bar { height: 6px; border-radius: 4px; transition: width 0.4s; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <button class="nav-btn active" onclick="showSection('home')">🏠 Home</button>
+  <button class="nav-btn" onclick="showSection('osi')">🔢 OSI Layers</button>
+  <button class="nav-btn" onclick="showSection('arp')">📡 ARP</button>
+  <button class="nav-btn" onclick="showSection('dhcp')">🏷️ DHCP</button>
+  <button class="nav-btn" onclick="showSection('dns')">🌐 DNS</button>
+  <button class="nav-btn" onclick="showSection('spotify')">🎵 Spotify</button>
+  <button class="nav-btn" onclick="showSection('quiz')">🧠 Quiz</button>
+</nav>
+
+<!-- ════════════════════════════════════════════════
+     HOME
+════════════════════════════════════════════════ -->
+<section id="home" class="section active">
+  <div class="hero">
+    <div style="font-size:48px;margin-bottom:10px">🌐</div>
+    <h1>Networking Deep Dive</h1>
+    <p>Tap any section to explore. Everything is interactive — tap nodes, packets, and steps to expand details.</p>
+    <p style="margin-top:8px;font-size:12px;color:var(--purple)">Built for Raj · Works on phone & desktop</p>
+  </div>
+
+  <div class="grid2">
+    <div class="card" onclick="showSection('osi')" style="cursor:pointer">
+      <div style="font-size:32px;text-align:center">🔢</div>
+      <h3 style="text-align:center">OSI Layers</h3>
+      <p style="text-align:center;font-size:12px">7 layers explained with what they actually do</p>
+    </div>
+    <div class="card" onclick="showSection('arp')" style="cursor:pointer">
+      <div style="font-size:32px;text-align:center">📡</div>
+      <h3 style="text-align:center">ARP</h3>
+      <p style="text-align:center;font-size:12px">How IP finds MAC — every byte explained</p>
+    </div>
+    <div class="card" onclick="showSection('dhcp')" style="cursor:pointer">
+      <div style="font-size:32px;text-align:center">🏷️</div>
+      <h3 style="text-align:center">DHCP</h3>
+      <p style="text-align:center;font-size:12px">DORA handshake — how you get your IP</p>
+    </div>
+    <div class="card" onclick="showSection('dns')" style="cursor:pointer">
+      <div style="font-size:32px;text-align:center">🌐</div>
+      <h3 style="text-align:center">DNS</h3>
+      <p style="text-align:center;font-size:12px">Name → IP resolution through the hierarchy</p>
+    </div>
+  </div>
+
+  <div class="card" onclick="showSection('spotify')" style="cursor:pointer">
+    <div style="font-size:32px;text-align:center">🎵</div>
+    <h3 style="text-align:center">Spotify Download Lifecycle</h3>
+    <p style="text-align:center;font-size:12px">From laptop power-on → song saved. Every network event, every OSI layer, every packet — mapped.</p>
+  </div>
+
+  <div class="info-box">
+    💡 <strong>How to use:</strong> Tap any highlighted box, flowchart node, or packet segment to see what's inside. Every step reveals more detail — go as deep as you want.
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     OSI LAYERS
+════════════════════════════════════════════════ -->
+<section id="osi" class="section">
+  <div class="hero" style="padding:20px">
+    <h1 style="font-size:20px">🔢 The OSI Model</h1>
+    <p>Tap any layer to see what it really does, what protocols live there, and what the data is called.</p>
+  </div>
+
+  <div class="info-box">
+    <strong>Mental model:</strong> Think of sending a letter. You write it (Layer 7), put it in an envelope (Layer 6), address it (Layer 5), hand it to postal worker (Layer 4), they sort it by region (Layer 3), put it in a mail truck (Layer 2), then the truck drives on roads (Layer 1). Each layer only talks to the layer directly above and below it.
+  </div>
+
+  <div class="card">
+    <h2>The 7 Layers — Tap to Expand</h2>
+    <div class="osi-stack">
+
+      <div class="osi-layer" style="background:rgba(236,72,153,0.15)" onclick="toggleOSI(7)">
+        <span class="num" style="color:var(--l7)">7</span>
+        <div><div class="name" style="color:var(--l7)">Application</div><div class="desc">What the user/app sees</div></div>
+        <span class="protos" style="color:var(--l7)">HTTP · DNS · FTP · Spotify API</span>
+      </div>
+      <div class="osi-detail" id="osi-7">
+        <strong style="color:var(--l7)">What it does:</strong> This is where actual application data lives. When Spotify asks "give me this song", that HTTP request is a Layer 7 event. DNS queries are Layer 7 messages. Email (SMTP) is Layer 7.<br><br>
+        <strong>Data unit name:</strong> <span class="tag" style="background:rgba(236,72,153,0.2);color:var(--l7)">Data / Message</span><br><br>
+        <strong>Real analogy:</strong> The actual words you write in a letter.<br><br>
+        <strong>Protocols here:</strong> HTTP/HTTPS, DNS, FTP, SMTP, SSH, DHCP (application-level), Spotify's custom API over HTTPS.<br><br>
+        <strong>Key point:</strong> Layer 7 has NO idea about IP addresses or MAC addresses. It just says "I want this data". Lower layers handle delivery.
+      </div>
+
+      <div class="osi-layer" style="background:rgba(139,92,246,0.15)" onclick="toggleOSI(6)">
+        <span class="num" style="color:var(--l6)">6</span>
+        <div><div class="name" style="color:var(--l6)">Presentation</div><div class="desc">Format, encrypt, compress</div></div>
+        <span class="protos" style="color:var(--l6)">TLS · SSL · JPEG · JSON</span>
+      </div>
+      <div class="osi-detail" id="osi-6">
+        <strong style="color:var(--l6)">What it does:</strong> Translates data into a format that both sender and receiver understand. This is where encryption (TLS/SSL) happens, where data gets compressed, where character encoding (UTF-8) is applied.<br><br>
+        <strong>Data unit name:</strong> <span class="tag" style="background:rgba(139,92,246,0.2);color:var(--l6)">Data</span><br><br>
+        <strong>Real analogy:</strong> The language you write the letter in (English vs French). And whether you seal it in a tamper-evident envelope (encryption).<br><br>
+        <strong>For Spotify:</strong> When your song download uses HTTPS, TLS encryption/decryption happens here. The raw song bytes are also decoded (AAC/OGG codec processing) at this layer conceptually.<br><br>
+        <strong>Key point:</strong> In TCP/IP real-world implementation, Layer 5 and 6 are often merged into the application. TLS is the most important real Layer 6 protocol.
+      </div>
+
+      <div class="osi-layer" style="background:rgba(6,182,212,0.15)" onclick="toggleOSI(5)">
+        <span class="num" style="color:var(--l5)">5</span>
+        <div><div class="name" style="color:var(--l5)">Session</div><div class="desc">Manage conversations</div></div>
+        <span class="protos" style="color:var(--l5)">TLS Handshake · RPC · NetBIOS</span>
+      </div>
+      <div class="osi-detail" id="osi-5">
+        <strong style="color:var(--l5)">What it does:</strong> Establishes, manages, and terminates sessions between applications. A "session" is a persistent dialogue between two apps. This layer handles checkpointing (resume a broken transfer).<br><br>
+        <strong>Data unit name:</strong> <span class="tag" style="background:rgba(6,182,212,0.2);color:var(--l5)">Data</span><br><br>
+        <strong>Real analogy:</strong> A phone call — you dial, talk, then hang up. Session layer manages that call lifecycle.<br><br>
+        <strong>For Spotify:</strong> Your login session to Spotify's servers is a Layer 5 concept. The TLS handshake that authenticates you to Spotify's CDN is Layer 5/6.<br><br>
+        <strong>Key point:</strong> In practice, Layers 5 and 6 are handled entirely by the application. The OS network stack essentially skips to Layer 4 (TCP/UDP).
+      </div>
+
+      <div class="osi-layer" style="background:rgba(34,197,94,0.15)" onclick="toggleOSI(4)">
+        <span class="num" style="color:var(--l4)">4</span>
+        <div><div class="name" style="color:var(--l4)">Transport</div><div class="desc">Reliable delivery between ports</div></div>
+        <span class="protos" style="color:var(--l4)">TCP · UDP · QUIC</span>
+      </div>
+      <div class="osi-detail" id="osi-4">
+        <strong style="color:var(--l4)">What it does:</strong> Gets data from one APPLICATION on one machine to the right APPLICATION on another machine. Uses ports to identify applications. TCP adds reliability (re-send lost packets). UDP is fire-and-forget.<br><br>
+        <strong>Data unit name:</strong> <span class="tag" style="background:rgba(34,197,94,0.2);color:var(--l4)">Segment (TCP) / Datagram (UDP)</span><br><br>
+        <strong>Real analogy:</strong> The postal tracking number. Ensures the letter arrives, and if it doesn't, it's resent.<br><br>
+        <strong>Ports explained:</strong> Your computer runs many apps at once. Port numbers say "this packet goes to Chrome (port 443) not to Spotify (port 4070)". Ports 0-1023 are "well-known" (HTTP=80, HTTPS=443, DNS=53, DHCP=67/68, FTP=21).<br><br>
+        <strong>TCP vs UDP:</strong><br>
+        TCP: "Did you get it? OK good. Did you get this one? Oh you didn't — here it is again." → used for Spotify song downloads (need every byte).<br>
+        UDP: "Here's the data. Good luck." → used for DHCP discovery, DNS queries (fast, small messages).<br><br>
+        <strong>QUIC:</strong> Spotify uses QUIC (HTTP/3) which is UDP-based but adds reliability in user-space. Best of both worlds.
+      </div>
+
+      <div class="osi-layer" style="background:rgba(234,179,8,0.15)" onclick="toggleOSI(3)">
+        <span class="num" style="color:var(--l3)">3</span>
+        <div><div class="name" style="color:var(--l3)">Network</div><div class="desc">Routing across networks</div></div>
+        <span class="protos" style="color:var(--l3)">IP · ICMP · ARP* · DHCP*</span>
+      </div>
+      <div class="osi-detail" id="osi-3">
+        <strong style="color:var(--l3)">What it does:</strong> Routes packets from one network to another using IP addresses. This is the layer that makes the internet work — routers operate at Layer 3. IP addresses (192.168.1.1, 8.8.8.8) live here.<br><br>
+        <strong>Data unit name:</strong> <span class="tag" style="background:rgba(234,179,8,0.2);color:var(--l3)">Packet</span><br><br>
+        <strong>Real analogy:</strong> The ZIP code on the letter. Tells the postal system which city/region to route it to.<br><br>
+        <strong>IP packet contains:</strong> Source IP, Destination IP, TTL (how many routers it can pass through), Protocol (TCP=6, UDP=17, ICMP=1).<br><br>
+        <strong>Routing:</strong> Every router has a routing table. When a packet arrives, the router does a longest-prefix match and forwards it out the right interface. This repeats hop-by-hop until the destination is reached.<br><br>
+        <strong>ARP at L2/L3 boundary:</strong> ARP is technically Layer 2 (uses MAC addresses) but it serves Layer 3 (resolves IP to MAC). It sits at the boundary.
+      </div>
+
+      <div class="osi-layer" style="background:rgba(249,115,22,0.15)" onclick="toggleOSI(2)">
+        <span class="num" style="color:var(--l2)">2</span>
+        <div><div class="name" style="color:var(--l2)">Data Link</div><div class="desc">Node-to-node delivery on same network</div></div>
+        <span class="protos" style="color:var(--l2)">Ethernet · WiFi · ARP · Switches</span>
+      </div>
+      <div class="osi-detail" id="osi-2">
+        <strong style="color:var(--l2)">What it does:</strong> Delivers frames between two devices on the SAME network segment. Uses MAC addresses (48-bit hardware addresses like AA:BB:CC:DD:EE:FF). Ethernet and WiFi are Layer 2 protocols. Switches operate here.<br><br>
+        <strong>Data unit name:</strong> <span class="tag" style="background:rgba(249,115,22,0.2);color:var(--l2)">Frame</span><br><br>
+        <strong>Real analogy:</strong> The street address and building number. Gets the letter from the sorting center to the exact building.<br><br>
+        <strong>MAC addresses:</strong> Every NIC has a unique MAC burned in at manufacture. Unlike IP addresses (logical, can change), MACs are hardware identifiers. Format: 6 bytes in hex, e.g. A4:83:E7:12:34:56.<br><br>
+        <strong>Ethernet frame contains:</strong> Destination MAC, Source MAC, EtherType (what Layer 3 protocol is inside: 0x0800=IPv4, 0x0806=ARP, 0x86DD=IPv6), payload, FCS checksum.<br><br>
+        <strong>Key insight:</strong> Layer 2 frames only travel on ONE network segment. When a packet crosses a router, the Layer 2 frame is completely rebuilt with new MACs for the next hop.
+      </div>
+
+      <div class="osi-layer" style="background:rgba(239,68,68,0.15)" onclick="toggleOSI(1)">
+        <span class="num" style="color:var(--l1)">1</span>
+        <div><div class="name" style="color:var(--l1)">Physical</div><div class="desc">Bits on the wire/air</div></div>
+        <span class="protos" style="color:var(--l1)">Ethernet cable · WiFi · Fiber</span>
+      </div>
+      <div class="osi-detail" id="osi-1">
+        <strong style="color:var(--l1)">What it does:</strong> Converts bits (1s and 0s) into physical signals — electrical pulses on copper, light pulses on fiber, radio waves for WiFi. Purely hardware. No addressing, no error correction, just signal transmission.<br><br>
+        <strong>Data unit name:</strong> <span class="tag" style="background:rgba(239,68,68,0.2);color:var(--l1)">Bits</span><br><br>
+        <strong>Real analogy:</strong> The physical road/track that the mail truck drives on.<br><br>
+        <strong>What's happening:</strong> Your NIC takes a binary frame and serializes it — sends bits one at a time as voltage changes (Ethernet) or frequency modulation (WiFi). The receiving NIC samples the signal and reconstructs the bits.<br><br>
+        <strong>Ethernet physical:</strong> 1Gbps = 1 billion bits per second transmitted as voltage changes. Your cable's copper wires carry these signals. CAT5e can carry up to 1Gbps, CAT6 up to 10Gbps.<br><br>
+        <strong>WiFi physical:</strong> Radio waves at 2.4GHz or 5GHz. Your router encodes bits as phase/amplitude changes in the radio wave (OFDM modulation). That's why walls reduce speed — they absorb/scatter the wave.
+      </div>
+
+    </div>
+  </div>
+
+  <!-- TCP/IP vs OSI -->
+  <div class="card">
+    <h2>TCP/IP Model (Real World)</h2>
+    <p>The internet doesn't actually use OSI in practice. It uses the simpler 4-layer TCP/IP model. Here's the mapping:</p>
+    <div style="margin-top:14px">
+      <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">OSI MODEL</div>
+          <div style="background:rgba(236,72,153,0.2);color:var(--l7);padding:8px;text-align:center;font-size:12px;border-radius:6px 6px 0 0;border:1px solid rgba(236,72,153,0.3)">7 · Application</div>
+          <div style="background:rgba(139,92,246,0.2);color:var(--l6);padding:8px;text-align:center;font-size:12px;border:1px solid rgba(139,92,246,0.3)">6 · Presentation</div>
+          <div style="background:rgba(6,182,212,0.2);color:var(--l5);padding:8px;text-align:center;font-size:12px;border:1px solid rgba(6,182,212,0.3)">5 · Session</div>
+          <div style="background:rgba(34,197,94,0.2);color:var(--l4);padding:8px;text-align:center;font-size:12px;border:1px solid rgba(34,197,94,0.3)">4 · Transport</div>
+          <div style="background:rgba(234,179,8,0.2);color:var(--l3);padding:8px;text-align:center;font-size:12px;border:1px solid rgba(234,179,8,0.3)">3 · Network</div>
+          <div style="background:rgba(249,115,22,0.2);color:var(--l2);padding:8px;text-align:center;font-size:12px;border:1px solid rgba(249,115,22,0.3)">2 · Data Link</div>
+          <div style="background:rgba(239,68,68,0.2);color:var(--l1);padding:8px;text-align:center;font-size:12px;border-radius:0 0 6px 6px;border:1px solid rgba(239,68,68,0.3)">1 · Physical</div>
+        </div>
+        <div style="display:flex;align-items:center;font-size:20px;color:var(--muted)">→</div>
+        <div style="flex:1;min-width:120px">
+          <div style="text-align:center;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:6px">TCP/IP MODEL</div>
+          <div style="background:rgba(236,72,153,0.2);color:var(--l7);padding:24px 8px;text-align:center;font-size:12px;border-radius:6px 6px 0 0;border:1px solid rgba(236,72,153,0.3)">Application<br><span style="font-size:10px;opacity:0.7">(L5+L6+L7)</span></div>
+          <div style="background:rgba(34,197,94,0.2);color:var(--l4);padding:8px;text-align:center;font-size:12px;border:1px solid rgba(34,197,94,0.3)">Transport<br><span style="font-size:10px;opacity:0.7">(L4)</span></div>
+          <div style="background:rgba(234,179,8,0.2);color:var(--l3);padding:8px;text-align:center;font-size:12px;border:1px solid rgba(234,179,8,0.3)">Internet<br><span style="font-size:10px;opacity:0.7">(L3)</span></div>
+          <div style="background:rgba(249,115,22,0.2);color:var(--l2);padding:16px 8px;text-align:center;font-size:12px;border-radius:0 0 6px 6px;border:1px solid rgba(249,115,22,0.3)">Network Access<br><span style="font-size:10px;opacity:0.7">(L1+L2)</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Encapsulation -->
+  <div class="card">
+    <h2>Encapsulation — How Layers Wrap Each Other</h2>
+    <p>When data travels DOWN the stack (sending), each layer wraps the data from the layer above by adding a header. This is encapsulation.</p>
+    <div style="margin-top:14px;font-size:12px">
+      <div style="padding:10px;background:rgba(236,72,153,0.1);border:1px solid rgba(236,72,153,0.3);border-radius:6px;margin-bottom:4px">
+        <span style="color:var(--l7);font-weight:700">L7 Data:</span> "GET /song/12345 HTTP/1.1" <span style="color:var(--muted)">(your Spotify request)</span>
+      </div>
+      <div style="padding:10px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.3);border-radius:6px;margin-bottom:4px">
+        <span style="color:var(--l4);font-weight:700">L4 adds TCP header:</span> [Src Port: 52341 | Dst Port: 443 | Seq: 1001 | ACK: 500] + L7 Data
+      </div>
+      <div style="padding:10px;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:6px;margin-bottom:4px">
+        <span style="color:var(--l3);font-weight:700">L3 adds IP header:</span> [Src IP: 192.168.1.100 | Dst IP: 35.186.224.25 | TTL: 64] + TCP Segment
+      </div>
+      <div style="padding:10px;background:rgba(249,115,22,0.1);border:1px solid rgba(249,115,22,0.3);border-radius:6px;margin-bottom:4px">
+        <span style="color:var(--l2);font-weight:700">L2 adds Ethernet header:</span> [Dst MAC: router-MAC | Src MAC: your-MAC | Type: 0x0800] + IP Packet + FCS
+      </div>
+      <div style="padding:10px;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);border-radius:6px">
+        <span style="color:var(--l1);font-weight:700">L1 transmits:</span> ⚡ 010110100101... bits on the wire
+      </div>
+    </div>
+    <p style="margin-top:12px;font-size:12px">On the RECEIVING end, each layer peels off its header (de-encapsulation) and passes the payload up. Router only looks at L3 header. Switch only looks at L2 header. App only sees L7 data.</p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     ARP
+════════════════════════════════════════════════ -->
+<section id="arp" class="section">
+  <div class="hero" style="padding:20px">
+    <h1 style="font-size:20px">📡 ARP — Address Resolution Protocol</h1>
+    <p>"I have an IP. What's the MAC?" — ARP answers this question on every local network.</p>
+  </div>
+
+  <!-- Why ARP exists -->
+  <div class="card">
+    <h2>🤔 Why Does ARP Even Exist?</h2>
+    <div class="info-box">
+      The internet uses <strong>IP addresses</strong> (like 192.168.1.1) to identify machines logically. But Ethernet hardware only understands <strong>MAC addresses</strong> (like AA:BB:CC:DD:EE:FF). ARP bridges this gap — it answers: <em>"Who has IP 192.168.1.20? Tell me your MAC so I can send you a frame."</em>
+    </div>
+    <div class="grid2">
+      <div style="background:var(--card2);padding:14px;border-radius:8px">
+        <div style="font-size:20px;text-align:center">🌍</div>
+        <div style="text-align:center;font-weight:700;font-size:13px;margin:6px 0">IP Address</div>
+        <div style="font-size:11px;color:var(--muted);text-align:center">Logical. Can change. Assigned by DHCP or admin. Used for routing ACROSS networks.</div>
+      </div>
+      <div style="background:var(--card2);padding:14px;border-radius:8px">
+        <div style="font-size:20px;text-align:center">💾</div>
+        <div style="text-align:center;font-weight:700;font-size:13px;margin:6px 0">MAC Address</div>
+        <div style="font-size:11px;color:var(--muted);text-align:center">Physical. Burned into NIC hardware. Never changes. Used for delivery on ONE segment only.</div>
+      </div>
+    </div>
+    <p style="margin-top:12px;font-size:12px">ARP only works on the <span class="highlight">same subnet</span>. To reach a different network, you send to the gateway's MAC — the router then handles forwarding.</p>
+  </div>
+
+  <!-- OSI mapping -->
+  <div class="card">
+    <h2>🔢 ARP on the OSI Stack</h2>
+    <p>ARP is unique — it lives at the boundary of Layer 2 and Layer 3:</p>
+    <div class="osi-stack" style="margin-top:12px">
+      <div class="osi-layer" style="background:rgba(249,115,22,0.15);opacity:0.4">
+        <span class="num" style="color:var(--l2)">2</span>
+        <div><div class="name" style="color:var(--l2)">Data Link</div><div class="desc">ARP is carried inside an Ethernet frame</div></div>
+        <span class="protos" style="color:var(--l2)">ARP uses EtherType 0x0806</span>
+      </div>
+      <div style="text-align:center;padding:4px;font-size:20px">↕️</div>
+      <div class="osi-layer" style="background:rgba(234,179,8,0.3);border:2px solid var(--l3)">
+        <span class="num" style="color:var(--l3)">2.5</span>
+        <div><div class="name" style="color:var(--l3)">ARP lives HERE</div><div class="desc">L2/L3 boundary — resolves L3 addresses to L2 addresses</div></div>
+        <span class="protos" style="color:var(--l3)">📍 ARP</span>
+      </div>
+      <div style="text-align:center;padding:4px;font-size:20px">↕️</div>
+      <div class="osi-layer" style="background:rgba(234,179,8,0.15);opacity:0.4">
+        <span class="num" style="color:var(--l3)">3</span>
+        <div><div class="name" style="color:var(--l3)">Network</div><div class="desc">ARP serves the IP layer — resolves next-hop IPs</div></div>
+        <span class="protos" style="color:var(--l3)">IP uses ARP to get MACs</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARP Flowchart -->
+  <div class="card">
+    <h2>🔄 ARP in Action — Tap Each Step</h2>
+    <p style="margin-bottom:14px">Scenario: <strong>Your laptop (192.168.1.10)</strong> wants to send a packet to <strong>your router (192.168.1.1)</strong> but doesn't know its MAC.</p>
+
+    <div class="flow">
+      <div class="flow-node" style="background:rgba(88,166,255,0.15);border:1px solid var(--blue);color:var(--blue)" onclick="toggleFlow('arp-1')">
+        💻 Your laptop needs to send to 192.168.1.1
+      </div>
+      <div class="flow-detail" id="arp-1">
+        <div class="packet-field"><span class="field-name">What happens:</span><span class="field-val">IP layer wants to send a packet. Checks routing table: 192.168.1.1 is on the same /24 subnet → direct delivery, no gateway needed.</span></div>
+        <div class="packet-field"><span class="field-name">Kernel action:</span><span class="field-val">Calls neighbour subsystem: "Do I have a MAC for 192.168.1.1?" Checks ARP cache (ip neigh show).</span></div>
+        <div class="packet-field"><span class="field-name">Result:</span><span class="field-val">ARP cache MISS — no entry. Must do ARP.</span></div>
+        <div class="packet-field"><span class="field-name">OSI Layer:</span><span class="field-val"><span class="osi-badge" style="background:rgba(234,179,8,0.3);color:var(--l3)">L3 IP</span> triggered ARP which is <span class="osi-badge" style="background:rgba(249,115,22,0.3);color:var(--l2)">L2/L3 boundary</span></span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(240,136,62,0.15);border:1px solid var(--orange);color:var(--orange)" onclick="toggleFlow('arp-2')">
+        📢 ARP REQUEST broadcast sent to everyone
+      </div>
+      <div class="flow-detail" id="arp-2">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 The ARP REQUEST packet — every field:</div>
+        <div class="packet-field"><span class="field-name">Ethernet Dst MAC</span><span class="field-val">FF:FF:FF:FF:FF:FF — BROADCAST. Every device on segment receives this.</span></div>
+        <div class="packet-field"><span class="field-name">Ethernet Src MAC</span><span class="field-val">Your laptop's MAC: AA:AA:AA:AA:AA:AA</span></div>
+        <div class="packet-field"><span class="field-name">EtherType</span><span class="field-val">0x0806 — tells receiver "this is ARP, not IP"</span></div>
+        <div class="packet-field"><span class="field-name">Hardware Type</span><span class="field-val">0x0001 — Ethernet</span></div>
+        <div class="packet-field"><span class="field-name">Protocol Type</span><span class="field-val">0x0800 — IPv4 (we're resolving an IPv4 address)</span></div>
+        <div class="packet-field"><span class="field-name">Hardware Addr Len</span><span class="field-val">6 — MAC addresses are 6 bytes</span></div>
+        <div class="packet-field"><span class="field-name">Protocol Addr Len</span><span class="field-val">4 — IPv4 addresses are 4 bytes</span></div>
+        <div class="packet-field"><span class="field-name">OPER (Operation)</span><span class="field-val">1 = REQUEST (I'm asking). 2 would be REPLY.</span></div>
+        <div class="packet-field"><span class="field-name">SHA (Sender HW Addr)</span><span class="field-val">AA:AA:AA:AA:AA:AA — your laptop's MAC</span></div>
+        <div class="packet-field"><span class="field-name">SPA (Sender Protocol)</span><span class="field-val">192.168.1.10 — your laptop's IP</span></div>
+        <div class="packet-field"><span class="field-name">THA (Target HW Addr)</span><span class="field-val">00:00:00:00:00:00 — UNKNOWN (that's what we're asking for!)</span></div>
+        <div class="packet-field"><span class="field-name">TPA (Target Protocol)</span><span class="field-val">192.168.1.1 — the IP we want the MAC for</span></div>
+        <div class="packet-field"><span class="field-name">Total size</span><span class="field-val">28 bytes ARP payload + 14 bytes Ethernet header + 4 bytes FCS = 46 bytes (padded to 64 min)</span></div>
+        <div class="packet-field"><span class="field-name">English translation:</span><span class="field-val">"Hey everyone! I'm AA:AA:AA:AA (192.168.1.10). Who has 192.168.1.1? Tell me your MAC!"</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(63,185,80,0.15);border:1px solid var(--green);color:var(--green)" onclick="toggleFlow('arp-3')">
+        📻 Every device on the network receives the broadcast
+      </div>
+      <div class="flow-detail" id="arp-3">
+        <div class="packet-field"><span class="field-name">Who gets it:</span><span class="field-val">Every device connected to the same switch/WiFi — your phone, smart TV, other laptops — ALL receive this frame because it's addressed to FF:FF:FF:FF:FF:FF.</span></div>
+        <div class="packet-field"><span class="field-name">What they do:</span><span class="field-val">Each device's NIC sees the broadcast MAC → passes frame up to OS. OS checks ARP protocol. Reads TPA (192.168.1.1). "Is that my IP?"</span></div>
+        <div class="packet-field"><span class="field-name">If NOT 192.168.1.1:</span><span class="field-val">Drop the packet. Do nothing. (But many smart devices silently update their own ARP cache with your IP→MAC mapping from SHA/SPA fields — called "learning".)</span></div>
+        <div class="packet-field"><span class="field-name">If IS 192.168.1.1 (router):</span><span class="field-val">Router recognizes its own IP. Prepares an ARP REPLY.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(188,140,255,0.15);border:1px solid var(--purple);color:var(--purple)" onclick="toggleFlow('arp-4')">
+        📬 ARP REPLY sent back — unicast, not broadcast
+      </div>
+      <div class="flow-detail" id="arp-4">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 The ARP REPLY packet — every field:</div>
+        <div class="packet-field"><span class="field-name">Ethernet Dst MAC</span><span class="field-val">AA:AA:AA:AA:AA:AA — YOUR laptop's MAC (from the request's SHA field). Unicast — only you get this.</span></div>
+        <div class="packet-field"><span class="field-name">Ethernet Src MAC</span><span class="field-val">BB:BB:BB:BB:BB:BB — router's actual MAC</span></div>
+        <div class="packet-field"><span class="field-name">OPER (Operation)</span><span class="field-val">2 = REPLY</span></div>
+        <div class="packet-field"><span class="field-name">SHA (Sender HW Addr)</span><span class="field-val">BB:BB:BB:BB:BB:BB — router's MAC ← THIS IS THE ANSWER YOU WANTED</span></div>
+        <div class="packet-field"><span class="field-name">SPA (Sender Protocol)</span><span class="field-val">192.168.1.1 — router's IP</span></div>
+        <div class="packet-field"><span class="field-name">THA (Target HW Addr)</span><span class="field-val">AA:AA:AA:AA:AA:AA — your MAC</span></div>
+        <div class="packet-field"><span class="field-name">TPA (Target Protocol)</span><span class="field-val">192.168.1.10 — your IP</span></div>
+        <div class="packet-field"><span class="field-name">English translation:</span><span class="field-val">"Hey AA:AA:AA (you asked about 192.168.1.1) — that's me! My MAC is BB:BB:BB:BB:BB:BB."</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(45,212,191,0.15);border:1px solid var(--teal);color:var(--teal)" onclick="toggleFlow('arp-5')">
+        💾 ARP cache updated — MAC stored in kernel
+      </div>
+      <div class="flow-detail" id="arp-5">
+        <div class="packet-field"><span class="field-name">Kernel action:</span><span class="field-val">Adds entry to neighbour table: 192.168.1.1 → BB:BB:BB:BB:BB:BB, state: NUD_REACHABLE</span></div>
+        <div class="packet-field"><span class="field-name">NUD_REACHABLE means:</span><span class="field-val">"I recently confirmed this MAC is valid." Will stay for ~30 seconds of inactivity.</span></div>
+        <div class="packet-field"><span class="field-name">Cache lifetime:</span><span class="field-val">After ~30s no traffic: REACHABLE → STALE. Next packet triggers a PROBE (unicast ARP). If no response → FAILED → removed.</span></div>
+        <div class="packet-field"><span class="field-name">Result:</span><span class="field-val">The queued IP packet (that triggered ARP) is NOW sent! Ethernet frame is built with dst=BB:BB:BB:BB:BB:BB and it flows to the router.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(88,166,255,0.15);border:1px solid var(--blue);color:var(--blue)" onclick="toggleFlow('arp-6')">
+        ✅ Original packet sent with correct MAC
+      </div>
+      <div class="flow-detail" id="arp-6">
+        <div class="packet-field"><span class="field-name">Final frame:</span><span class="field-val">Eth dst: BB:BB:BB:BB (router) | Eth src: AA:AA:AA (you) | IP dst: 8.8.8.8 | TCP/UDP payload</span></div>
+        <div class="packet-field"><span class="field-name">Key point:</span><span class="field-val">Notice the IP destination is 8.8.8.8 (Google) but the Ethernet destination is the router's MAC. The frame goes to the router, which then strips the L2 header and routes the IP packet to the next hop.</span></div>
+        <div class="packet-field"><span class="field-name">Future packets:</span><span class="field-val">No ARP needed — cache is hit immediately. ARP overhead is only on the first packet to each new destination.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARP Packet anatomy visual -->
+  <div class="card">
+    <h2>🔬 ARP Packet — Visual Anatomy</h2>
+    <p style="margin-bottom:12px">Tap each segment to see what's inside:</p>
+    <div class="packet-wrap">
+      <div class="packet-layers">
+        <div class="packet-seg" style="background:rgba(249,115,22,0.25)" onclick="showPacket('arp-eth')">
+          <div class="seg-name" style="color:var(--l2)">Ethernet<br>Header</div>
+          <div class="seg-size">14 bytes</div>
+        </div>
+        <div class="packet-seg" style="background:rgba(234,179,8,0.25)" onclick="showPacket('arp-hdr')">
+          <div class="seg-name" style="color:var(--l3)">ARP<br>Fixed Header</div>
+          <div class="seg-size">8 bytes</div>
+        </div>
+        <div class="packet-seg" style="background:rgba(88,166,255,0.25)" onclick="showPacket('arp-pay')">
+          <div class="seg-name" style="color:var(--blue)">ARP<br>Payload</div>
+          <div class="seg-size">20 bytes</div>
+        </div>
+        <div class="packet-seg" style="background:rgba(63,185,80,0.25)" onclick="showPacket('arp-fcs')">
+          <div class="seg-name" style="color:var(--green)">FCS<br>Checksum</div>
+          <div class="seg-size">4 bytes</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="packet-popup" id="arp-eth">
+      <div style="font-weight:700;color:var(--l2);margin-bottom:8px">Ethernet Header (14 bytes)</div>
+      <div class="byte-row"><span class="byte-label">Dest MAC (6 bytes)</span><span class="byte-val"><div>REQUEST: FF:FF:FF:FF:FF:FF (broadcast)</div><div>REPLY: requester's MAC (unicast)</div><div class="byte-why">→ Determines who receives the frame at L2</div></span></div>
+      <div class="byte-row"><span class="byte-label">Source MAC (6 bytes)</span><span class="byte-val"><div>Sender's hardware MAC address</div><div class="byte-why">→ So receiver knows who sent this frame</div></span></div>
+      <div class="byte-row"><span class="byte-label">EtherType (2 bytes)</span><span class="byte-val"><div>0x08 0x06 = ARP</div><div class="byte-why">→ Tells receiver what L3 protocol is in the payload. 0x0800=IPv4, 0x0806=ARP, 0x86DD=IPv6</div></span></div>
+    </div>
+    <div class="packet-popup" id="arp-hdr">
+      <div style="font-weight:700;color:var(--l3);margin-bottom:8px">ARP Fixed Header (8 bytes)</div>
+      <div class="byte-row"><span class="byte-label">HTYPE (2 bytes)</span><span class="byte-val"><div>0x0001 = Ethernet</div><div class="byte-why">→ What kind of hardware addresses are used (Ethernet MAC = type 1)</div></span></div>
+      <div class="byte-row"><span class="byte-label">PTYPE (2 bytes)</span><span class="byte-val"><div>0x0800 = IPv4</div><div class="byte-why">→ What kind of protocol addresses are used (IPv4 = 0x0800)</div></span></div>
+      <div class="byte-row"><span class="byte-label">HLEN (1 byte)</span><span class="byte-val"><div>6 (bytes in a MAC address)</div><div class="byte-why">→ Length of hardware address field</div></span></div>
+      <div class="byte-row"><span class="byte-label">PLEN (1 byte)</span><span class="byte-val"><div>4 (bytes in an IPv4 address)</div><div class="byte-why">→ Length of protocol address field</div></span></div>
+      <div class="byte-row"><span class="byte-label">OPER (2 bytes)</span><span class="byte-val"><div>1 = REQUEST &nbsp;|&nbsp; 2 = REPLY</div><div class="byte-why">→ Am I asking (1) or answering (2)?</div></span></div>
+    </div>
+    <div class="packet-popup" id="arp-pay">
+      <div style="font-weight:700;color:var(--blue);margin-bottom:8px">ARP Payload — The Addresses (20 bytes)</div>
+      <div class="byte-row"><span class="byte-label">SHA (6 bytes)</span><span class="byte-val"><div>Sender Hardware Address = Sender's MAC</div><div class="byte-why">→ "I am this MAC address"</div></span></div>
+      <div class="byte-row"><span class="byte-label">SPA (4 bytes)</span><span class="byte-val"><div>Sender Protocol Address = Sender's IP</div><div class="byte-why">→ "I have this IP address"</div></span></div>
+      <div class="byte-row"><span class="byte-label">THA (6 bytes)</span><span class="byte-val"><div>Target Hardware Address</div><div>REQUEST: 00:00:00:00:00:00 (unknown — that's what we want!)</div><div>REPLY: filled in with requester's MAC</div></span></div>
+      <div class="byte-row"><span class="byte-label">TPA (4 bytes)</span><span class="byte-val"><div>Target Protocol Address = Target's IP</div><div class="byte-why">→ "I'm looking for whoever has THIS IP"</div></span></div>
+    </div>
+    <div class="packet-popup" id="arp-fcs">
+      <div style="font-weight:700;color:var(--green);margin-bottom:8px">Frame Check Sequence (4 bytes)</div>
+      <div class="byte-row"><span class="byte-label">FCS / CRC32</span><span class="byte-val"><div>CRC-32 checksum over the entire frame</div><div class="byte-why">→ Receiver computes CRC and compares. If mismatch → frame is corrupted → silently dropped. This is L2's error detection (not correction — no retransmit at L2).</div></span></div>
+    </div>
+  </div>
+
+  <!-- Special ARP types -->
+  <div class="card">
+    <h2>🔀 Special ARP Types</h2>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('arp-tabs','garp')">Gratuitous ARP</button>
+      <button class="tab-btn" onclick="switchTab('arp-tabs','parp')">Proxy ARP</button>
+      <button class="tab-btn" onclick="switchTab('arp-tabs','spoof')">ARP Spoofing</button>
+    </div>
+    <div id="arp-tabs">
+      <div class="tab-pane active" id="tab-garp">
+        <div class="info-box">
+          <strong>Gratuitous ARP = "Hey everyone, update your caches about ME"</strong>
+        </div>
+        <p><strong>What it is:</strong> An ARP where the sender IP <em>and</em> target IP are both the sender's own IP. Nobody asked for it — it's a voluntary announcement.</p>
+        <div style="background:var(--card2);padding:12px;border-radius:8px;font-size:12px;margin-top:10px">
+          <div class="byte-row"><span class="byte-label">SPA:</span><span class="byte-val">192.168.1.10 (your IP)</span></div>
+          <div class="byte-row"><span class="byte-label">TPA:</span><span class="byte-val">192.168.1.10 (SAME — your own IP)</span></div>
+          <div class="byte-row"><span class="byte-label">Destination MAC:</span><span class="byte-val">FF:FF:FF:FF:FF:FF (broadcast)</span></div>
+        </div>
+        <p style="margin-top:10px"><strong>Why it's used:</strong></p>
+        <p>1. <strong>IP conflict detection:</strong> When a host boots and claims an IP, it sends a GARP. If another machine replies with its own MAC → conflict detected!</p>
+        <p>2. <strong>Failover/migration:</strong> When a VM migrates to a new physical host, it sends a GARP so all devices update their cache with the new MAC for that IP. Used in HSRP, VRRP, live migrations.</p>
+        <p>3. <strong>Router failover:</strong> When a backup router takes over, it GARPs so all devices stop using the old router's MAC.</p>
+      </div>
+      <div class="tab-pane" id="tab-parp">
+        <div class="info-box"><strong>Proxy ARP = Router lies about being another device</strong></div>
+        <p>A router with Proxy ARP enabled will reply to ARP requests on behalf of hosts in OTHER subnets. When Host A ARPs for 10.0.2.5 (different subnet), the router replies with <em>its own</em> MAC. Host A sends traffic to the router, which forwards it.</p>
+        <p style="margin-top:8px"><strong>When used:</strong> Old VPNs, mobile/satellite links, specific ISP configs. Most modern networks disable it because it can cause routing loops.</p>
+        <div class="warn-box">⚠️ Proxy ARP can cause confusion — hosts end up with a MAC entry that's actually the router, not the real target. If the real host later appears on the same subnet, cached entries are wrong until ARP ages out.</div>
+      </div>
+      <div class="tab-pane" id="tab-spoof">
+        <div class="warn-box">⚠️ <strong>ARP has NO authentication.</strong> Any device can send a fake ARP reply and nobody can verify it.</div>
+        <p><strong>ARP Spoofing / Poisoning attack:</strong></p>
+        <p>1. Attacker sends a GARP claiming "IP 192.168.1.1 (your gateway) is at MAC: ATTACKER:MAC:HERE"</p>
+        <p>2. All devices on the network update their ARP cache — now all traffic meant for the gateway goes to the attacker!</p>
+        <p>3. Attacker forwards traffic (Man-in-the-Middle) while silently reading/modifying it.</p>
+        <p style="margin-top:8px"><strong>Defenses:</strong></p>
+        <p>• <strong>Dynamic ARP Inspection (DAI)</strong> on managed switches — validates ARP packets against a DHCP snooping table</p>
+        <p>• <strong>Static ARP entries</strong> — manually set permanent MAC→IP mappings for critical devices (gateway)</p>
+        <p>• <strong>HTTPS/TLS everywhere</strong> — even if traffic is intercepted, it's encrypted</p>
+        <p>• <strong>802.1X port authentication</strong> — only authenticated devices can connect</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     DHCP
+════════════════════════════════════════════════ -->
+<section id="dhcp" class="section">
+  <div class="hero" style="padding:20px">
+    <h1 style="font-size:20px">🏷️ DHCP — Dynamic Host Configuration Protocol</h1>
+    <p>How your device gets its IP address, gateway, DNS, and everything else automatically when it joins a network.</p>
+  </div>
+
+  <div class="card">
+    <h2>🤔 What Does DHCP Actually Give You?</h2>
+    <p>When you connect to WiFi, DHCP hands your device a complete network "identity package":</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px">
+      <div style="background:rgba(88,166,255,0.1);border:1px solid rgba(88,166,255,0.3);padding:10px;border-radius:8px;font-size:12px">
+        <div style="color:var(--blue);font-weight:700">📍 IP Address</div>
+        <div style="color:var(--muted);margin-top:4px">e.g. 192.168.1.105 — your unique identity on this network</div>
+      </div>
+      <div style="background:rgba(240,136,62,0.1);border:1px solid rgba(240,136,62,0.3);padding:10px;border-radius:8px;font-size:12px">
+        <div style="color:var(--orange);font-weight:700">🔀 Subnet Mask</div>
+        <div style="color:var(--muted);margin-top:4px">e.g. 255.255.255.0 — defines which IPs are "local" vs need routing</div>
+      </div>
+      <div style="background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);padding:10px;border-radius:8px;font-size:12px">
+        <div style="color:var(--green);font-weight:700">🚪 Default Gateway</div>
+        <div style="color:var(--muted);margin-top:4px">e.g. 192.168.1.1 — the router to use for all non-local traffic</div>
+      </div>
+      <div style="background:rgba(188,140,255,0.1);border:1px solid rgba(188,140,255,0.3);padding:10px;border-radius:8px;font-size:12px">
+        <div style="color:var(--purple);font-weight:700">🌐 DNS Servers</div>
+        <div style="color:var(--muted);margin-top:4px">e.g. 8.8.8.8 — who to ask when resolving domain names</div>
+      </div>
+      <div style="background:rgba(45,212,191,0.1);border:1px solid rgba(45,212,191,0.3);padding:10px;border-radius:8px;font-size:12px">
+        <div style="color:var(--teal);font-weight:700">⏱️ Lease Time</div>
+        <div style="color:var(--muted);margin-top:4px">e.g. 86400s — how long you can keep this IP before renewing</div>
+      </div>
+      <div style="background:rgba(247,120,186,0.1);border:1px solid rgba(247,120,186,0.3);padding:10px;border-radius:8px;font-size:12px">
+        <div style="color:var(--pink);font-weight:700">🖥️ Hostname / NTP</div>
+        <div style="color:var(--muted);margin-top:4px">Domain name, time server, TFTP server for PXE boot — all via DHCP options</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OSI layers for DHCP -->
+  <div class="card">
+    <h2>🔢 DHCP on the OSI Stack</h2>
+    <div class="osi-stack" style="margin-top:8px">
+      <div class="osi-layer" style="background:rgba(236,72,153,0.15);border:2px solid var(--l7)">
+        <span class="num" style="color:var(--l7)">7</span>
+        <div><div class="name" style="color:var(--l7)">Application</div><div class="desc">DHCP protocol logic — DORA messages, options parsing</div></div>
+        <span class="protos" style="color:var(--l7)">📍 DHCP here</span>
+      </div>
+      <div class="osi-layer" style="background:rgba(34,197,94,0.1);opacity:0.5">
+        <span class="num" style="color:var(--l4)">4</span>
+        <div><div class="name" style="color:var(--l4)">Transport</div><div class="desc">UDP — no connection needed, fast broadcast</div></div>
+        <span class="protos" style="color:var(--l4)">UDP port 67 (server) / 68 (client)</span>
+      </div>
+      <div class="osi-layer" style="background:rgba(234,179,8,0.1);opacity:0.5">
+        <span class="num" style="color:var(--l3)">3</span>
+        <div><div class="name" style="color:var(--l3)">Network</div><div class="desc">IP — but src=0.0.0.0 (no IP yet!), dst=255.255.255.255 (broadcast)</div></div>
+        <span class="protos" style="color:var(--l3)">IPv4 — special case: 0.0.0.0 → 255.255.255.255</span>
+      </div>
+      <div class="osi-layer" style="background:rgba(249,115,22,0.1);opacity:0.5">
+        <span class="num" style="color:var(--l2)">2</span>
+        <div><div class="name" style="color:var(--l2)">Data Link</div><div class="desc">Ethernet frame — dst MAC = FF:FF:FF:FF:FF:FF</div></div>
+        <span class="protos" style="color:var(--l2)">Ethernet broadcast</span>
+      </div>
+    </div>
+    <div class="info-box" style="margin-top:12px">
+      <strong>Why UDP and not TCP?</strong> The client has NO IP address yet — it can't do a TCP 3-way handshake (which requires a real IP). UDP allows sending with src=0.0.0.0 to the broadcast address. DHCP is designed to work even with no existing network configuration.
+    </div>
+  </div>
+
+  <!-- DORA flowchart -->
+  <div class="card">
+    <h2>🔄 DORA — The 4-Step Handshake — Tap Each Step</h2>
+    <div class="info-box">
+      <strong>D</strong>iscover → <strong>O</strong>ffer → <strong>R</strong>equest → <strong>A</strong>cknowledge<br>
+      <span style="font-size:11px">This is how every device gets its IP on a new network. Each step is a UDP broadcast/unicast.</span>
+    </div>
+
+    <div class="flow">
+      <div class="flow-node" style="background:rgba(88,166,255,0.15);border:1px solid var(--blue);color:var(--blue)" onclick="toggleFlow('d1')">
+        🔍 Step 1: DHCPDISCOVER — "Is anyone there? I need an IP!"
+      </div>
+      <div class="flow-detail" id="d1">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 DHCPDISCOVER packet — every important field:</div>
+        <div class="packet-field"><span class="field-name">Ethernet Dst</span><span class="field-val">FF:FF:FF:FF:FF:FF — broadcast (no one to unicast to yet)</span></div>
+        <div class="packet-field"><span class="field-name">Ethernet Src</span><span class="field-val">Your NIC's MAC address</span></div>
+        <div class="packet-field"><span class="field-name">IP Source</span><span class="field-val">0.0.0.0 — "I have NO IP address"</span></div>
+        <div class="packet-field"><span class="field-name">IP Destination</span><span class="field-val">255.255.255.255 — limited broadcast (every device on this subnet)</span></div>
+        <div class="packet-field"><span class="field-name">UDP Src Port</span><span class="field-val">68 — DHCP client port</span></div>
+        <div class="packet-field"><span class="field-name">UDP Dst Port</span><span class="field-val">67 — DHCP server port</span></div>
+        <div class="packet-field"><span class="field-name">DHCP Op</span><span class="field-val">1 = BOOTREQUEST (client sending)</span></div>
+        <div class="packet-field"><span class="field-name">DHCP Msg Type (opt 53)</span><span class="field-val">1 = DHCPDISCOVER</span></div>
+        <div class="packet-field"><span class="field-name">xid (transaction ID)</span><span class="field-val">Random 32-bit number e.g. 0x3A4F21BC — used to match responses to this discovery</span></div>
+        <div class="packet-field"><span class="field-name">chaddr</span><span class="field-val">Client's MAC address — stored so server knows where to reply</span></div>
+        <div class="packet-field"><span class="field-name">ciaddr</span><span class="field-val">0.0.0.0 — client IP (empty, we don't have one)</span></div>
+        <div class="packet-field"><span class="field-name">Option 50 (optional)</span><span class="field-val">Requested IP Address — if device had a previous lease, it requests the same IP</span></div>
+        <div class="packet-field"><span class="field-name">Option 55</span><span class="field-val">Parameter Request List — "please also give me: subnet mask, gateway, DNS, hostname, MTU..."</span></div>
+        <div class="packet-field"><span class="field-name">English meaning</span><span class="field-val">"Hello everyone on this network! I'm MAC AA:BB:CC... and I don't have an IP. Is there a DHCP server here? I'd like an IP please. Here's my transaction ID so you can address the reply to me."</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(240,136,62,0.15);border:1px solid var(--orange);color:var(--orange)" onclick="toggleFlow('d2')">
+        📋 Step 2: DHCPOFFER — "I have an IP for you!"
+      </div>
+      <div class="flow-detail" id="d2">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 DHCPOFFER packet — every important field:</div>
+        <div class="packet-field"><span class="field-name">Ethernet Dst</span><span class="field-val">FF:FF:FF:FF:FF:FF (broadcast) OR client's MAC (if broadcast flag=0)</span></div>
+        <div class="packet-field"><span class="field-name">IP Source</span><span class="field-val">Server's real IP — e.g. 192.168.1.1</span></div>
+        <div class="packet-field"><span class="field-name">IP Destination</span><span class="field-val">255.255.255.255 — still broadcast (client doesn't have IP to unicast to)</span></div>
+        <div class="packet-field"><span class="field-name">DHCP Op</span><span class="field-val">2 = BOOTREPLY (server responding)</span></div>
+        <div class="packet-field"><span class="field-name">DHCP Msg Type (opt 53)</span><span class="field-val">2 = DHCPOFFER</span></div>
+        <div class="packet-field"><span class="field-name">xid</span><span class="field-val">SAME as client's discover — this matches the offer to the right client</span></div>
+        <div class="packet-field"><span class="field-name">yiaddr (Your IP)</span><span class="field-val">192.168.1.105 — "HERE is the IP I'm offering you"</span></div>
+        <div class="packet-field"><span class="field-name">siaddr (Server IP)</span><span class="field-val">192.168.1.1 — DHCP server's IP</span></div>
+        <div class="packet-field"><span class="field-name">Option 1 (Subnet Mask)</span><span class="field-val">255.255.255.0</span></div>
+        <div class="packet-field"><span class="field-name">Option 3 (Router)</span><span class="field-val">192.168.1.1 — your default gateway</span></div>
+        <div class="packet-field"><span class="field-name">Option 6 (DNS)</span><span class="field-val">8.8.8.8, 8.8.4.4 — DNS servers</span></div>
+        <div class="packet-field"><span class="field-name">Option 51 (Lease Time)</span><span class="field-val">86400 seconds = 24 hours — how long you can keep this IP</span></div>
+        <div class="packet-field"><span class="field-name">Option 54 (Server ID)</span><span class="field-val">192.168.1.1 — identifies THIS server (important for next step)</span></div>
+        <div class="packet-field"><span class="field-name">What if 2 servers reply?</span><span class="field-val">Client may receive multiple OFFERs. It picks the FIRST one. The chosen server is identified by Option 54. Others see the REQUEST and retract their offers.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(63,185,80,0.15);border:1px solid var(--green);color:var(--green)" onclick="toggleFlow('d3')">
+        ✋ Step 3: DHCPREQUEST — "I accept! I choose you, server."
+      </div>
+      <div class="flow-detail" id="d3">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 DHCPREQUEST packet:</div>
+        <div class="packet-field"><span class="field-name">STILL broadcast!</span><span class="field-val">Even though client received an offer, this is STILL sent as broadcast. Why? So ALL DHCP servers can see it — the unchosen servers need to know to release their reserved IPs.</span></div>
+        <div class="packet-field"><span class="field-name">IP Source</span><span class="field-val">Still 0.0.0.0 — IP not yet officially assigned</span></div>
+        <div class="packet-field"><span class="field-name">DHCP Msg Type (opt 53)</span><span class="field-val">3 = DHCPREQUEST</span></div>
+        <div class="packet-field"><span class="field-name">xid</span><span class="field-val">Same transaction ID as Discover</span></div>
+        <div class="packet-field"><span class="field-name">Option 50 (Requested IP)</span><span class="field-val">192.168.1.105 — the IP from the chosen OFFER</span></div>
+        <div class="packet-field"><span class="field-name">Option 54 (Server ID)</span><span class="field-val">192.168.1.1 — "I'm accepting the offer FROM THIS server"</span></div>
+        <div class="packet-field"><span class="field-name">English meaning</span><span class="field-val">"To everyone: I received an offer from server 192.168.1.1 and I'm accepting IP 192.168.1.105. Other DHCP servers: please discard your offers for me."</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(188,140,255,0.15);border:1px solid var(--purple);color:var(--purple)" onclick="toggleFlow('d4')">
+        ✅ Step 4: DHCPACK — "Confirmed! That IP is yours."
+      </div>
+      <div class="flow-detail" id="d4">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 DHCPACK packet:</div>
+        <div class="packet-field"><span class="field-name">DHCP Msg Type (opt 53)</span><span class="field-val">5 = DHCPACK (ACKnowledgement)</span></div>
+        <div class="packet-field"><span class="field-name">yiaddr</span><span class="field-val">192.168.1.105 — the confirmed IP address</span></div>
+        <div class="packet-field"><span class="field-name">All config options</span><span class="field-val">Subnet mask, gateway, DNS, domain name, NTP servers — everything from the OFFER is confirmed here</span></div>
+        <div class="packet-field"><span class="field-name">Option 51 (Lease Time)</span><span class="field-val">86400s. Sets the clock. After this, IP must be renewed or released.</span></div>
+        <div class="packet-field"><span class="field-name">Option 58 (T1 Renewal)</span><span class="field-val">43200s (50% of lease) — at T1, client unicasts DHCPREQUEST directly to server to renew</span></div>
+        <div class="packet-field"><span class="field-name">Option 59 (T2 Rebinding)</span><span class="field-val">75600s (87.5% of lease) — if T1 renewal failed, at T2 client broadcasts to ANY server</span></div>
+        <div class="packet-field"><span class="field-name">After ACK received:</span><span class="field-val">Client does ARP probe (Gratuitous ARP) to check for IP conflict. If no conflict: configures the interface. ip addr add 192.168.1.105/24, adds routes, writes DNS to resolv.conf.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(45,212,191,0.15);border:1px solid var(--teal);color:var(--teal)" onclick="toggleFlow('d5')">
+        🎉 Interface configured! You're on the network.
+      </div>
+      <div class="flow-detail" id="d5">
+        <div class="packet-field"><span class="field-name">OS does this:</span><span class="field-val">Assigns IP to interface (enp3s0 / eth0 / WiFi adapter). Adds subnet route. Sets default route via gateway. Writes DNS servers to /etc/resolv.conf (Linux) or DNS settings in registry (Windows).</span></div>
+        <div class="packet-field"><span class="field-name">Kernel calls made:</span><span class="field-val">RTM_NEWADDR (add IP), RTM_NEWROUTE (add routes) via netlink socket. These are the actual kernel messages from DHCP client daemon to kernel.</span></div>
+        <div class="packet-field"><span class="field-name">Next step:</span><span class="field-val">ARP for the gateway MAC (so packets can actually be sent). Then DNS lookup for any hostname resolution. Then actual application traffic begins.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DHCP Lease Lifecycle -->
+  <div class="card">
+    <h2>⏱️ Lease Lifecycle — What Happens Over Time</h2>
+    <p style="margin-bottom:14px">Your IP lease isn't permanent. Here's the full lifecycle:</p>
+
+    <div style="position:relative;padding:0 0 0 20px">
+      <div style="position:absolute;left:4px;top:0;bottom:0;width:2px;background:var(--border)"></div>
+
+      <div style="margin-bottom:16px;position:relative" onclick="toggleFlow('lease-0')">
+        <div style="position:absolute;left:-19px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--blue);border:2px solid var(--bg)"></div>
+        <div style="font-weight:700;font-size:13px;color:var(--blue)">T=0 — DHCPACK received</div>
+        <div style="font-size:11px;color:var(--muted)">Lease begins. IP configured. Lease Time = L seconds.</div>
+        <div class="flow-detail" id="lease-0" style="margin-top:6px">
+          <div class="packet-field"><span class="field-name">What's set:</span><span class="field-val">IP assigned. T1 timer = L × 0.5. T2 timer = L × 0.875. Lease expiry = T+L.</span></div>
+          <div class="packet-field"><span class="field-name">Example:</span><span class="field-val">L = 86400s (24h). T1 = 43200s (12h). T2 = 75600s (21h).</span></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;position:relative" onclick="toggleFlow('lease-1')">
+        <div style="position:absolute;left:-19px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--orange);border:2px solid var(--bg)"></div>
+        <div style="font-weight:700;font-size:13px;color:var(--orange)">T1 (50%) — Renewal attempt</div>
+        <div style="font-size:11px;color:var(--muted)">Client unicasts DHCPREQUEST directly to server that gave the lease.</div>
+        <div class="flow-detail" id="lease-1" style="margin-top:6px">
+          <div class="packet-field"><span class="field-name">Client sends:</span><span class="field-val">DHCPREQUEST unicast to server's IP. "Can I keep my IP a bit longer?"</span></div>
+          <div class="packet-field"><span class="field-name">If ACK:</span><span class="field-val">Lease renewed. New L, T1, T2 set. Back to happy state.</span></div>
+          <div class="packet-field"><span class="field-name">If no response:</span><span class="field-val">Server maybe down. Client waits until T2.</span></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;position:relative" onclick="toggleFlow('lease-2')">
+        <div style="position:absolute;left:-19px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--yellow);border:2px solid var(--bg)"></div>
+        <div style="font-weight:700;font-size:13px;color:var(--yellow)">T2 (87.5%) — Rebinding attempt</div>
+        <div style="font-size:11px;color:var(--muted)">T1 renewal failed. Client broadcasts to ANY DHCP server.</div>
+        <div class="flow-detail" id="lease-2" style="margin-top:6px">
+          <div class="packet-field"><span class="field-name">Client sends:</span><span class="field-val">DHCPREQUEST broadcast. ANY server can extend the lease. This is a last resort before expiry.</span></div>
+          <div class="packet-field"><span class="field-name">If ACK:</span><span class="field-val">Lease renewed by a (possibly different) server.</span></div>
+          <div class="packet-field"><span class="field-name">If no response:</span><span class="field-val">Approaching expiry. Client continues until T+L.</span></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;position:relative" onclick="toggleFlow('lease-3')">
+        <div style="position:absolute;left:-19px;top:5px;width:12px;height:12px;border-radius:50%;background:var(--red);border:2px solid var(--bg)"></div>
+        <div style="font-weight:700;font-size:13px;color:var(--red)">T=L — Lease EXPIRES</div>
+        <div style="font-size:11px;color:var(--muted)">Client MUST stop using the IP. Network access lost.</div>
+        <div class="flow-detail" id="lease-3" style="margin-top:6px">
+          <div class="packet-field"><span class="field-name">What happens:</span><span class="field-val">Client removes IP from interface. Routing entries removed. Network connectivity drops.</span></div>
+          <div class="packet-field"><span class="field-name">Recovery:</span><span class="field-val">Client starts full DORA process again from DHCPDISCOVER.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DHCP Relay -->
+  <div class="card">
+    <h2>🔁 DHCP Relay — For Large Networks</h2>
+    <div class="warn-box">
+      DHCP DISCOVER is a broadcast. Routers don't forward broadcasts between subnets by default. So how does one DHCP server serve 50 different subnets/VLANs?
+    </div>
+    <p><strong>Answer: DHCP Relay Agent</strong> (runs on the router/L3 switch)</p>
+    <div class="flow" style="margin-top:14px">
+      <div class="flow-node" style="background:rgba(88,166,255,0.1);border:1px solid var(--blue);color:var(--blue);font-size:12px" onclick="toggleFlow('relay-1')">
+        Client sends DHCPDISCOVER broadcast on VLAN 10
+      </div>
+      <div class="flow-detail" id="relay-1">
+        <div class="packet-field"><span class="field-name">Normal broadcast:</span><span class="field-val">Src: 0.0.0.0, Dst: 255.255.255.255. Reaches only devices on the same VLAN/segment.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node" style="background:rgba(240,136,62,0.1);border:1px solid var(--orange);color:var(--orange);font-size:12px" onclick="toggleFlow('relay-2')">
+        Router's DHCP Relay Agent intercepts the broadcast
+      </div>
+      <div class="flow-detail" id="relay-2">
+        <div class="packet-field"><span class="field-name">Relay agent fills in giaddr:</span><span class="field-val">giaddr (Gateway IP Address field in DHCP) = relay's own interface IP on that VLAN, e.g. 10.10.10.1. This tells the DHCP server WHICH subnet the client is on.</span></div>
+        <div class="packet-field"><span class="field-name">Converts to unicast:</span><span class="field-val">Repackages as unicast UDP to DHCP server's IP (e.g. 192.168.100.5). Router can forward unicast across subnets.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node" style="background:rgba(63,185,80,0.1);border:1px solid var(--green);color:var(--green);font-size:12px" onclick="toggleFlow('relay-3')">
+        DHCP server allocates from correct pool using giaddr
+      </div>
+      <div class="flow-detail" id="relay-3">
+        <div class="packet-field"><span class="field-name">Pool selection:</span><span class="field-val">Server sees giaddr = 10.10.10.1 → allocates from the 10.10.10.0/24 pool (not from 192.168.1.0/24 for example). Without giaddr, server wouldn't know which pool to use.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node" style="background:rgba(188,140,255,0.1);border:1px solid var(--purple);color:var(--purple);font-size:12px" onclick="toggleFlow('relay-4')">
+        Server replies to relay agent → relay delivers to client
+      </div>
+      <div class="flow-detail" id="relay-4">
+        <div class="packet-field"><span class="field-name">Reply path:</span><span class="field-val">Server sends DHCPOFFER unicast back to the relay agent. Relay forwards to client (broadcast or unicast depending on BROADCAST flag).</span></div>
+        <div class="packet-field"><span class="field-name">Cisco config example:</span><span class="field-val">On router interface: "ip helper-address 192.168.100.5" — this one command enables DHCP relay for that interface.</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     DNS
+════════════════════════════════════════════════ -->
+<section id="dns" class="section">
+  <div class="hero" style="padding:20px">
+    <h1 style="font-size:20px">🌐 DNS — Domain Name System</h1>
+    <p>The internet's phone book. Turns "google.com" into "142.250.80.46". Distributed, cached, hierarchical.</p>
+  </div>
+
+  <div class="card">
+    <h2>🌳 The DNS Hierarchy — Tap to Explore</h2>
+    <p style="margin-bottom:12px">DNS is a tree. Every domain name is a path from leaf to root. Understanding the tree is key to understanding resolution.</p>
+    <div class="flow">
+      <div class="flow-node" style="background:rgba(247,120,186,0.15);border:1px solid var(--pink);color:var(--pink)" onclick="toggleFlow('dns-tree-root')">
+        🌍 Root Zone " . " — Top of the tree
+      </div>
+      <div class="flow-detail" id="dns-tree-root">
+        <div class="packet-field"><span class="field-name">What it is:</span><span class="field-val">The very top of DNS. Represented by a single dot ".". Every FQDN ends with this dot (www.google.com. — trailing dot = root).</span></div>
+        <div class="packet-field"><span class="field-name">Root nameservers:</span><span class="field-val">13 sets (a.root-servers.net through m.root-servers.net), operated by 12 organisations worldwide. They use anycast so there are actually hundreds of physical servers globally.</span></div>
+        <div class="packet-field"><span class="field-name">What they know:</span><span class="field-val">Only where the TLD servers are (.com, .org, .net, .io, .uk etc). They say: "I don't know google.com's IP but go ask the .com TLD servers."</span></div>
+        <div class="packet-field"><span class="field-name">Hardcoded where?</span><span class="field-val">Root server IP addresses are hardcoded into every DNS resolver software. They are the starting point for all recursive resolution.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node" style="background:rgba(188,140,255,0.15);border:1px solid var(--purple);color:var(--purple)" onclick="toggleFlow('dns-tree-tld')">
+        🏷️ TLD Servers — ".com", ".org", ".io" etc.
+      </div>
+      <div class="flow-detail" id="dns-tree-tld">
+        <div class="packet-field"><span class="field-name">What they are:</span><span class="field-val">Top-Level Domain servers. Verisign operates .com and .net. ICANN operates .org. Each country has its own (.uk, .de, .in etc).</span></div>
+        <div class="packet-field"><span class="field-name">What they know:</span><span class="field-val">Which nameservers are authoritative for each second-level domain. E.g. "google.com is handled by ns1.google.com, ns2.google.com."</span></div>
+        <div class="packet-field"><span class="field-name">Response type:</span><span class="field-val">NS (nameserver) records pointing to the authoritative nameservers for the queried domain.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node" style="background:rgba(88,166,255,0.15);border:1px solid var(--blue);color:var(--blue)" onclick="toggleFlow('dns-tree-auth')">
+        📖 Authoritative Nameservers — the final answer
+      </div>
+      <div class="flow-detail" id="dns-tree-auth">
+        <div class="packet-field"><span class="field-name">What they are:</span><span class="field-val">The servers that ACTUALLY hold the DNS records for a domain. Google runs ns1.google.com through ns4.google.com. Cloudflare runs DNS for millions of domains.</span></div>
+        <div class="packet-field"><span class="field-name">What they know:</span><span class="field-val">Every A, AAAA, MX, TXT, CNAME record for their domain. When they reply, they set the "Authoritative Answer" (AA) flag in the DNS header.</span></div>
+        <div class="packet-field"><span class="field-name">Record example:</span><span class="field-val">A record: www.google.com → 142.250.80.46, TTL=300 (cache for 5 minutes)</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-node" style="background:rgba(63,185,80,0.15);border:1px solid var(--green);color:var(--green)" onclick="toggleFlow('dns-tree-recur')">
+        🔄 Recursive Resolver — your middleman
+      </div>
+      <div class="flow-detail" id="dns-tree-recur">
+        <div class="packet-field"><span class="field-name">What it is:</span><span class="field-val">A server that does the multi-step resolution on your behalf. Your router, ISP, or 8.8.8.8 (Google DNS), 1.1.1.1 (Cloudflare DNS) — these are recursive resolvers.</span></div>
+        <div class="packet-field"><span class="field-name">What it does:</span><span class="field-val">Receives "what's google.com?" → asks root → asks .com TLD → asks Google's auth NS → gets answer → caches it → returns to you.</span></div>
+        <div class="packet-field"><span class="field-name">Why cache?</span><span class="field-val">Once it resolves google.com, the next 1000 users asking the same thing get the cached answer instantly. This is why TTL matters — it controls how long the cache is valid.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DNS Resolution Journey -->
+  <div class="card">
+    <h2>🗺️ Full Resolution Journey — You Type "spotify.com"</h2>
+    <p style="margin-bottom:12px">Every single stop a DNS query makes — tap each step:</p>
+
+    <div class="flow">
+      <div class="flow-node" style="background:rgba(88,166,255,0.1);border:1px solid var(--blue);color:var(--blue);font-size:12px" onclick="toggleFlow('dns-1')">
+        🌐 Browser checks its own DNS cache
+      </div>
+      <div class="flow-detail" id="dns-1">
+        <div class="packet-field"><span class="field-name">Where:</span><span class="field-val">Chrome: chrome://net-internals/#dns. Firefox: about:networking#dns</span></div>
+        <div class="packet-field"><span class="field-name">What happens:</span><span class="field-val">Browser keeps its own separate DNS cache. If spotify.com was visited recently AND the TTL hasn't expired, it reuses the cached IP. No OS or network call needed.</span></div>
+        <div class="packet-field"><span class="field-name">If hit:</span><span class="field-val">→ Skip everything below. Use cached IP.</span></div>
+        <div class="packet-field"><span class="field-name">If miss:</span><span class="field-val">→ Continue to OS.</span></div>
+        <div class="packet-field"><span class="field-name">OSI layer:</span><span class="field-val"><span class="osi-badge" style="background:rgba(236,72,153,0.3);color:var(--l7)">L7 Application</span> — all happens inside the browser process</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(240,136,62,0.1);border:1px solid var(--orange);color:var(--orange);font-size:12px" onclick="toggleFlow('dns-2')">
+        🖥️ OS resolver: check /etc/hosts, then OS cache
+      </div>
+      <div class="flow-detail" id="dns-2">
+        <div class="packet-field"><span class="field-name">What happens:</span><span class="field-val">Browser calls OS API: getaddrinfo("spotify.com"). OS reads /etc/nsswitch.conf: "hosts: files dns". First: check /etc/hosts file. Then: check OS DNS cache.</span></div>
+        <div class="packet-field"><span class="field-name">/etc/hosts:</span><span class="field-val">A simple text file. One line per mapping: "1.2.3.4 myserver.local". If spotify.com is in here, no DNS query is ever made. This is why ad-blockers can use /etc/hosts to block domains.</span></div>
+        <div class="packet-field"><span class="field-name">OS DNS cache:</span><span class="field-val">Linux: systemd-resolved cache (127.0.0.53). Windows: DNS Client service cache. If found and TTL not expired → return to browser.</span></div>
+        <div class="packet-field"><span class="field-name">OSI layer:</span><span class="field-val"><span class="osi-badge" style="background:rgba(236,72,153,0.3);color:var(--l7)">L7</span> — still inside the OS, no network packet yet</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(63,185,80,0.1);border:1px solid var(--green);color:var(--green);font-size:12px" onclick="toggleFlow('dns-3')">
+        📤 DNS query sent to recursive resolver (e.g. 8.8.8.8)
+      </div>
+      <div class="flow-detail" id="dns-3">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 DNS Query Packet — every field:</div>
+        <div class="packet-field"><span class="field-name">IP Src:</span><span class="field-val">192.168.1.105 (your laptop's IP)</span></div>
+        <div class="packet-field"><span class="field-name">IP Dst:</span><span class="field-val">8.8.8.8 (Google's recursive resolver) — from /etc/resolv.conf</span></div>
+        <div class="packet-field"><span class="field-name">UDP Src Port:</span><span class="field-val">Random high port e.g. 54321 (so the reply comes back to you)</span></div>
+        <div class="packet-field"><span class="field-name">UDP Dst Port:</span><span class="field-val">53 — DNS server port</span></div>
+        <div class="packet-field"><span class="field-name">DNS Header ID:</span><span class="field-val">Random 16-bit e.g. 0xA1B2 — matches response to request</span></div>
+        <div class="packet-field"><span class="field-name">DNS QR flag:</span><span class="field-val">0 = Query (1 = Response)</span></div>
+        <div class="packet-field"><span class="field-name">RD flag (Recursion Desired):</span><span class="field-val">1 — "Please do recursive resolution for me"</span></div>
+        <div class="packet-field"><span class="field-name">QNAME:</span><span class="field-val">spotify.com — encoded as: \x07spotify\x03com\x00 (length-prefixed labels)</span></div>
+        <div class="packet-field"><span class="field-name">QTYPE:</span><span class="field-val">A (1) — asking for IPv4 address</span></div>
+        <div class="packet-field"><span class="field-name">QCLASS:</span><span class="field-val">IN (1) — Internet class</span></div>
+        <div class="packet-field"><span class="field-name">OSI layers:</span><span class="field-val"><span class="osi-badge" style="background:rgba(236,72,153,0.3);color:var(--l7)">L7 DNS</span> <span class="osi-badge" style="background:rgba(34,197,94,0.3);color:var(--l4)">L4 UDP</span> <span class="osi-badge" style="background:rgba(234,179,8,0.3);color:var(--l3)">L3 IP</span> <span class="osi-badge" style="background:rgba(249,115,22,0.3);color:var(--l2)">L2 Ethernet</span></span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(188,140,255,0.1);border:1px solid var(--purple);color:var(--purple);font-size:12px" onclick="toggleFlow('dns-4')">
+        🔄 Recursive resolver walks the DNS tree (cache miss)
+      </div>
+      <div class="flow-detail" id="dns-4">
+        <div class="packet-field"><span class="field-name">Step 1 — Ask a root server:</span><span class="field-val">Resolver sends: "Who is authoritative for .com?" → Root server replies with NS records: "a.gtld-servers.net, b.gtld-servers.net..." (the .com TLD servers)</span></div>
+        <div class="packet-field"><span class="field-name">Step 2 — Ask TLD server:</span><span class="field-val">Resolver sends to a.gtld-servers.net: "Who is authoritative for spotify.com?" → TLD replies with NS records: "ns1.p34.dynect.net, ns2.p34.dynect.net..." (Spotify's authoritative nameservers)</span></div>
+        <div class="packet-field"><span class="field-name">Step 3 — Ask authoritative server:</span><span class="field-val">Resolver asks ns1.p34.dynect.net: "What's the A record for spotify.com?" → Auth server replies: "35.186.224.47, TTL=60"</span></div>
+        <div class="packet-field"><span class="field-name">Caching:</span><span class="field-val">Resolver caches each answer. Next time anyone asks for spotify.com, step 3 is skipped (cached for 60s). If .com TLD servers haven't changed, step 2 is skipped too (cached for hours/days).</span></div>
+        <div class="packet-field"><span class="field-name">All these are UDP packets:</span><span class="field-val">Each sub-query is a separate UDP/53 packet to a different server. If response exceeds 512 bytes (or EDNS0 limit), TCP is used instead.</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+
+      <div class="flow-node" style="background:rgba(45,212,191,0.1);border:1px solid var(--teal);color:var(--teal);font-size:12px" onclick="toggleFlow('dns-5')">
+        📬 DNS response arrives at your laptop
+      </div>
+      <div class="flow-detail" id="dns-5">
+        <div style="font-weight:700;margin-bottom:8px;color:var(--text)">📦 DNS Response Packet:</div>
+        <div class="packet-field"><span class="field-name">QR flag:</span><span class="field-val">1 = Response</span></div>
+        <div class="packet-field"><span class="field-name">AA flag:</span><span class="field-val">0 = Non-authoritative (came from cache or recursive resolver, not the authoritative server directly)</span></div>
+        <div class="packet-field"><span class="field-name">RA flag (Recursion Available):</span><span class="field-val">1 — server supports recursive queries</span></div>
+        <div class="packet-field"><span class="field-name">RCODE:</span><span class="field-val">0 = NOERROR (success). 3 = NXDOMAIN (domain doesn't exist). 2 = SERVFAIL (server error).</span></div>
+        <div class="packet-field"><span class="field-name">Answer section:</span><span class="field-val">spotify.com, Type A, Class IN, TTL 60, RDATA: 35.186.224.47</span></div>
+        <div class="packet-field"><span class="field-name">After receiving:</span><span class="field-val">OS caches the answer for TTL seconds. Returns IP to browser. Browser can now make TCP connection to 35.186.224.47:443.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DNS Record Types -->
+  <div class="card">
+    <h2>📋 DNS Record Types — What They Mean</h2>
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('dns-rec','a')">A / AAAA</button>
+      <button class="tab-btn" onclick="switchTab('dns-rec','cname')">CNAME</button>
+      <button class="tab-btn" onclick="switchTab('dns-rec','mx')">MX</button>
+      <button class="tab-btn" onclick="switchTab('dns-rec','txt')">TXT</button>
+    </div>
+    <div id="dns-rec">
+      <div class="tab-pane active" id="tab-a">
+        <div class="packet-field"><span class="field-name">A Record</span><span class="field-val">Maps hostname → IPv4 address. Example: spotify.com → 35.186.224.47. This is what gets resolved when you open a website.</span></div>
+        <div class="packet-field"><span class="field-name">AAAA Record</span><span class="field-val">Maps hostname → IPv6 address (4× as long). Example: spotify.com → 2a02:26f0:80:489::1ife. Modern browsers try AAAA first.</span></div>
+        <div class="packet-field"><span class="field-name">TTL</span><span class="field-val">How many seconds resolvers cache this record. Spotify uses TTL=60 — short, so they can change IPs quickly for CDN routing. Google uses TTL=300 (5 min).</span></div>
+      </div>
+      <div class="tab-pane" id="tab-cname">
+        <div class="packet-field"><span class="field-name">CNAME = Canonical Name</span><span class="field-val">An alias. "www.spotify.com is actually a CNAME for spotify.map.fastly.net" — so resolving www.spotify.com leads to resolving spotify.map.fastly.net, which gives the real IP.</span></div>
+        <div class="packet-field"><span class="field-name">Why use it:</span><span class="field-val">CDN routing. spotify.map.fastly.net resolves differently depending on your location — giving you the closest CDN server. Spotify just points to Fastly and lets Fastly handle regional IPs.</span></div>
+        <div class="packet-field"><span class="field-name">Chain:</span><span class="field-val">www.spotify.com (CNAME) → spotify.map.fastly.net (CNAME) → 151.101.128.133 (A record). Each step is a separate DNS lookup.</span></div>
+      </div>
+      <div class="tab-pane" id="tab-mx">
+        <div class="packet-field"><span class="field-name">MX = Mail Exchange</span><span class="field-val">Points to mail servers for a domain. When someone emails you@spotify.com, their mail server looks up spotify.com MX records to find where to deliver email.</span></div>
+        <div class="packet-field"><span class="field-name">Priority:</span><span class="field-val">MX records have a priority number. Lower = higher priority. "10 aspmx.l.google.com, 20 alt1.aspmx.l.google.com" — try priority 10 first, then 20 as backup.</span></div>
+      </div>
+      <div class="tab-pane" id="tab-txt">
+        <div class="packet-field"><span class="field-name">TXT = Text Record</span><span class="field-val">Arbitrary text data. Used for many verification purposes.</span></div>
+        <div class="packet-field"><span class="field-name">SPF:</span><span class="field-val">"v=spf1 include:amazonses.com ~all" — tells mail servers which IPs are allowed to send email from this domain. Anti-spam.</span></div>
+        <div class="packet-field"><span class="field-name">DKIM:</span><span class="field-val">Cryptographic public key used to verify email signatures. Prevents email spoofing.</span></div>
+        <div class="packet-field"><span class="field-name">Domain verification:</span><span class="field-val">Google/GitHub/Cloudflare ask you to add a TXT record to prove you own a domain (e.g. "google-site-verification=abc123").</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DNS Message Format -->
+  <div class="card">
+    <h2>🔬 DNS Packet — Visual Anatomy</h2>
+    <p style="margin-bottom:10px">Tap each part:</p>
+    <div class="packet-wrap">
+      <div class="packet-layers">
+        <div class="packet-seg" style="background:rgba(247,120,186,0.2)" onclick="showPacket('dns-header')">
+          <div class="seg-name" style="color:var(--pink)">DNS<br>Header</div>
+          <div class="seg-size">12 bytes</div>
+        </div>
+        <div class="packet-seg" style="background:rgba(88,166,255,0.2)" onclick="showPacket('dns-question')">
+          <div class="seg-name" style="color:var(--blue)">Question<br>Section</div>
+          <div class="seg-size">variable</div>
+        </div>
+        <div class="packet-seg" style="background:rgba(63,185,80,0.2)" onclick="showPacket('dns-answer')">
+          <div class="seg-name" style="color:var(--green)">Answer<br>Section</div>
+          <div class="seg-size">variable</div>
+        </div>
+        <div class="packet-seg" style="background:rgba(240,136,62,0.2)" onclick="showPacket('dns-auth')">
+          <div class="seg-name" style="color:var(--orange)">Authority<br>Section</div>
+          <div class="seg-size">variable</div>
+        </div>
+      </div>
+    </div>
+    <div class="packet-popup" id="dns-header">
+      <div style="font-weight:700;color:var(--pink);margin-bottom:8px">DNS Header — 12 bytes, always present</div>
+      <div class="byte-row"><span class="byte-label">ID (2 bytes)</span><span class="byte-val"><div>Random 16-bit transaction ID</div><div class="byte-why">→ Response must echo same ID. Allows matching replies to requests when many queries are in flight.</div></span></div>
+      <div class="byte-row"><span class="byte-label">Flags (2 bytes)</span><span class="byte-val"><div>QR(1) OPCODE(4) AA(1) TC(1) RD(1) RA(1) Z(3) RCODE(4)</div><div class="byte-why">→ QR: 0=query, 1=response. AA: 1=answer from authoritative server. TC: 1=truncated (too big for UDP). RD: 1=please recurse. RA: 1=server can recurse. RCODE: 0=ok, 3=NXDOMAIN.</div></span></div>
+      <div class="byte-row"><span class="byte-label">QDCOUNT (2 bytes)</span><span class="byte-val"><div>Number of questions (usually 1)</div></span></div>
+      <div class="byte-row"><span class="byte-label">ANCOUNT (2 bytes)</span><span class="byte-val"><div>Number of answers (0 in a query, 1+ in response)</div></span></div>
+      <div class="byte-row"><span class="byte-label">NSCOUNT (2 bytes)</span><span class="byte-val"><div>Number of authority records (NS records pointing to authoritative servers)</div></span></div>
+      <div class="byte-row"><span class="byte-label">ARCOUNT (2 bytes)</span><span class="byte-val"><div>Number of additional records (often A records for the NS servers themselves)</div></span></div>
+    </div>
+    <div class="packet-popup" id="dns-question">
+      <div style="font-weight:700;color:var(--blue);margin-bottom:8px">Question Section</div>
+      <div class="byte-row"><span class="byte-label">QNAME</span><span class="byte-val"><div>The domain name, encoded as length-prefixed labels</div><div class="byte-why">→ spotify.com = \x07spotify\x03com\x00. Each part: 1 byte length, then the letters. Ends with \x00 (empty label = root). This encoding allows name compression in DNS messages.</div></span></div>
+      <div class="byte-row"><span class="byte-label">QTYPE (2 bytes)</span><span class="byte-val"><div>What kind of record? A=1, NS=2, CNAME=5, MX=15, TXT=16, AAAA=28, ANY=255</div></span></div>
+      <div class="byte-row"><span class="byte-label">QCLASS (2 bytes)</span><span class="byte-val"><div>1 = IN (Internet) — almost always 1. Historical legacy for other networks.</div></span></div>
+    </div>
+    <div class="packet-popup" id="dns-answer">
+      <div style="font-weight:700;color:var(--green);margin-bottom:8px">Answer Section (Resource Records)</div>
+      <div class="byte-row"><span class="byte-label">NAME</span><span class="byte-val"><div>The domain this record is for (often a compressed pointer to the question)</div></span></div>
+      <div class="byte-row"><span class="byte-label">TYPE (2 bytes)</span><span class="byte-val"><div>Record type: A, AAAA, CNAME, MX etc</div></span></div>
+      <div class="byte-row"><span class="byte-label">CLASS (2 bytes)</span><span class="byte-val"><div>Usually IN=1</div></span></div>
+      <div class="byte-row"><span class="byte-label">TTL (4 bytes)</span><span class="byte-val"><div>Seconds to cache this record</div><div class="byte-why">→ Cached from when THIS resolver received it. By the time you get a cached response, part of the TTL may already be consumed.</div></span></div>
+      <div class="byte-row"><span class="byte-label">RDLENGTH (2 bytes)</span><span class="byte-val"><div>Length of the data field</div></span></div>
+      <div class="byte-row"><span class="byte-label">RDATA</span><span class="byte-val"><div>The actual data: A record = 4 bytes (IPv4). AAAA = 16 bytes (IPv6). CNAME = encoded domain name. MX = 2-byte priority + domain name.</div></span></div>
+    </div>
+    <div class="packet-popup" id="dns-auth">
+      <div style="font-weight:700;color:var(--orange);margin-bottom:8px">Authority Section</div>
+      <div class="byte-row"><span class="byte-label">What it contains</span><span class="byte-val"><div>NS records pointing to the authoritative nameservers for the queried zone.</div><div class="byte-why">→ When a resolver gets a referral (e.g. from root to TLD), the authority section contains the NS records for the next zone to query. The additional section often includes A records (glue records) for those NS servers so you don't have to do another lookup just to find them.</div></span></div>
+      <div class="byte-row"><span class="byte-label">Glue records</span><span class="byte-val"><div>If ns1.google.com is the authoritative server for google.com, how do you resolve ns1.google.com without already knowing google.com? The TLD server includes the IP for ns1.google.com in the additional section — these are glue records, breaking the circular dependency.</div></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     SPOTIFY LIFECYCLE
+════════════════════════════════════════════════ -->
+<section id="spotify" class="section">
+  <div class="hero" style="padding:20px">
+    <h1 style="font-size:20px">🎵 Spotify Download — Full Lifecycle</h1>
+    <p>From pressing the power button to hearing your song. Every network event, every OSI layer, every packet mapped.</p>
+  </div>
+
+  <div class="info-box">
+    <strong>The scenario:</strong> You press the power button on your laptop → connect to WiFi → open Spotify → find a song → tap Download. Here's every single networking event that happens, in order.
+  </div>
+
+  <div class="card">
+    <h2>🗺️ Overview Map</h2>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+      <div style="background:rgba(239,68,68,0.2);border:1px solid var(--l1);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;color:var(--l1)">① Power ON</div>
+      <div style="color:var(--muted);align-self:center">→</div>
+      <div style="background:rgba(249,115,22,0.2);border:1px solid var(--l2);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;color:var(--l2)">② NIC Init</div>
+      <div style="color:var(--muted);align-self:center">→</div>
+      <div style="background:rgba(234,179,8,0.2);border:1px solid var(--l3);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;color:var(--l3)">③ DHCP</div>
+      <div style="color:var(--muted);align-self:center">→</div>
+      <div style="background:rgba(34,197,94,0.2);border:1px solid var(--l4);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;color:var(--l4)">④ ARP gateway</div>
+      <div style="color:var(--muted);align-self:center">→</div>
+      <div style="background:rgba(6,182,212,0.2);border:1px solid var(--l5);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;color:var(--l5)">⑤ DNS</div>
+      <div style="color:var(--muted);align-self:center">→</div>
+      <div style="background:rgba(139,92,246,0.2);border:1px solid var(--l6);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;color:var(--l6)">⑥ TLS</div>
+      <div style="color:var(--muted);align-self:center">→</div>
+      <div style="background:rgba(236,72,153,0.2);border:1px solid var(--l7);padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;color:var(--l7)">⑦ Download</div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="card">
+    <h2>⏱️ Full Timeline — Tap Each Phase</h2>
+
+    <div class="timeline">
+
+      <div class="tl-item" onclick="toggleFlow('sp-1')">
+        <div class="tl-dot" style="background:var(--l1);border-color:var(--l1)"></div>
+        <div class="tl-title"><span style="color:var(--l1)">① Power Button Pressed</span> <span class="tag" style="background:rgba(239,68,68,0.2);color:var(--l1)">L1 Physical</span></div>
+        <div class="tl-sub">Hardware initialises. CPU, RAM, NIC — before any networking.</div>
+        <div class="tl-body" id="sp-1">
+          <div class="packet-field"><span class="field-name">BIOS/UEFI boots:</span><span class="field-val">CPU starts executing firmware from ROM. POST tests RAM, CPU, detects hardware. PCI bus enumerated — NIC discovered.</span></div>
+          <div class="packet-field"><span class="field-name">NIC MAC address:</span><span class="field-val">BIOS/UEFI reads MAC address from EEPROM/flash on the NIC card itself. This is the permanent hardware address (e.g. A4:83:E7:12:34:56). Stored in the NIC's memory — never changes.</span></div>
+          <div class="packet-field"><span class="field-name">OS bootloader:</span><span class="field-val">GRUB/Windows Boot Manager loads kernel. Kernel initialises all subsystems including net/core/. Network stack is ready but no interface is UP yet.</span></div>
+          <div class="packet-field"><span class="field-name">NIC driver loaded:</span><span class="field-val">Kernel matches NIC's PCI vendor/device ID to driver (e.g. Intel → e1000e, Realtek → r8169, WiFi → iwlwifi). Driver registers the device, sets up DMA ring buffers (TX/RX queues). Interface exists but is DOWN — no traffic flows.</span></div>
+          <div class="packet-field"><span class="field-name">OSI:</span><span class="field-val"><span class="osi-pill" style="background:rgba(239,68,68,0.3);color:var(--l1)">L1 Physical</span> — hardware init. <span class="osi-pill" style="background:rgba(249,115,22,0.3);color:var(--l2)">L2 Data Link</span> — NIC driver + MAC address ready.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-2')">
+        <div class="tl-dot" style="background:var(--l2);border-color:var(--l2)"></div>
+        <div class="tl-title"><span style="color:var(--l2)">② WiFi Interface Brought UP</span> <span class="tag" style="background:rgba(249,115,22,0.2);color:var(--l2)">L1 + L2</span></div>
+        <div class="tl-sub">systemd/NetworkManager activates the WiFi interface. Physical link established.</div>
+        <div class="tl-body" id="sp-2">
+          <div class="packet-field"><span class="field-name">Interface UP:</span><span class="field-val">NetworkManager/systemd-networkd sends SIOCSIFFLAGS (set interface flags) syscall to kernel → sets IFF_UP flag. NIC hardware activates. WiFi radio turns on.</span></div>
+          <div class="packet-field"><span class="field-name">WiFi association:</span><span class="field-val">wpa_supplicant scans for known SSIDs. Sends 802.11 Probe Request frames on each WiFi channel. Your router responds with Probe Response. 4-way WPA2 handshake completes. Cryptographic keys established.</span></div>
+          <div class="packet-field"><span class="field-name">Physical layer:</span><span class="field-val">WiFi radio starts sending/receiving at 2.4GHz or 5GHz. Autonegotiation sets bitrate (e.g. 300Mbps HT40, or 1Gbps on 5GHz with 802.11ac). For Ethernet: autoneg chooses 1Gbps full duplex.</span></div>
+          <div class="packet-field"><span class="field-name">STP (if Ethernet):</span><span class="field-val">Ethernet switch port may go through Spanning Tree Protocol states (Listening → Learning → Forwarding) — up to 30 seconds on older switches, near-instant with RSTP.</span></div>
+          <div class="packet-field"><span class="field-name">State now:</span><span class="field-val">Interface is UP and has link. But NO IP address yet. Can't send/receive IP traffic.</span></div>
+          <div class="packet-field"><span class="field-name">OSI:</span><span class="field-val"><span class="osi-pill" style="background:rgba(239,68,68,0.3);color:var(--l1)">L1</span> radio/wire connected. <span class="osi-pill" style="background:rgba(249,115,22,0.3);color:var(--l2)">L2</span> frames can now be sent/received.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-3')">
+        <div class="tl-dot" style="background:var(--l3);border-color:var(--l3)"></div>
+        <div class="tl-title"><span style="color:var(--l3)">③ DHCP — Get an IP Address</span> <span class="tag" style="background:rgba(234,179,8,0.2);color:var(--l3)">L2+L3+L4+L7</span></div>
+        <div class="tl-sub">The DORA dance. ~50ms on a fast home network.</div>
+        <div class="tl-body" id="sp-3">
+          <div class="packet-field"><span class="field-name">DHCPDISCOVER:</span><span class="field-val">DHCP client creates raw socket (AF_PACKET — bypasses IP stack entirely since there's no IP). Sends frame: Eth dst=FF:FF:FF:FF:FF:FF, IP src=0.0.0.0, IP dst=255.255.255.255, UDP 68→67, DHCP op=1.</span></div>
+          <div class="packet-field"><span class="field-name">DHCPOFFER:</span><span class="field-val">Your router's built-in DHCP server responds: "You can have 192.168.1.105. Gateway=192.168.1.1. DNS=8.8.8.8. Lease=24h."</span></div>
+          <div class="packet-field"><span class="field-name">DHCPREQUEST + ACK:</span><span class="field-val">Client accepts. Server confirms. IP is now assigned.</span></div>
+          <div class="packet-field"><span class="field-name">Conflict check:</span><span class="field-val">Client sends Gratuitous ARP for 192.168.1.105. "Is anyone using this IP?" Waits ~1 second. No reply → safe to use.</span></div>
+          <div class="packet-field"><span class="field-name">Interface configured:</span><span class="field-val">Kernel: ip addr add 192.168.1.105/24. ip route add default via 192.168.1.1. /etc/resolv.conf updated with 8.8.8.8.</span></div>
+          <div class="packet-field"><span class="field-name">Packets on wire:</span><span class="field-val">4 UDP broadcast/broadcast packets (DORA). Plus 1 ARP probe. Total: ~5 frames.</span></div>
+          <div class="packet-field"><span class="field-name">OSI:</span><span class="field-val"><span class="osi-pill" style="background:rgba(249,115,22,0.3);color:var(--l2)">L2</span> Ethernet frames. <span class="osi-pill" style="background:rgba(234,179,8,0.3);color:var(--l3)">L3</span> IP (0.0.0.0→255.255.255.255). <span class="osi-pill" style="background:rgba(34,197,94,0.3);color:var(--l4)">L4</span> UDP 68/67. <span class="osi-pill" style="background:rgba(236,72,153,0.3);color:var(--l7)">L7</span> DHCP protocol.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-4')">
+        <div class="tl-dot" style="background:var(--l4);border-color:var(--l4)"></div>
+        <div class="tl-title"><span style="color:var(--l4)">④ ARP — Find the Gateway's MAC</span> <span class="tag" style="background:rgba(34,197,94,0.2);color:var(--l4)">L2/L3</span></div>
+        <div class="tl-sub">To send anything to the internet, we need the router's MAC. ARP finds it.</div>
+        <div class="tl-body" id="sp-4">
+          <div class="packet-field"><span class="field-name">Why now:</span><span class="field-val">Any packet going to the internet must be physically delivered to the router first. But the router's MAC isn't known yet. Kernel checks ARP cache → miss → triggers ARP.</span></div>
+          <div class="packet-field"><span class="field-name">ARP REQUEST sent:</span><span class="field-val">Broadcast: "Who has 192.168.1.1? Tell 192.168.1.105." SHA=your-MAC, SPA=192.168.1.105, TPA=192.168.1.1.</span></div>
+          <div class="packet-field"><span class="field-name">ARP REPLY received:</span><span class="field-val">Router: "That's me! My MAC is CC:DD:EE:FF:00:11." Cache updated: 192.168.1.1 → CC:DD:EE:FF:00:11. State: NUD_REACHABLE.</span></div>
+          <div class="packet-field"><span class="field-name">Time taken:</span><span class="field-val">Typically &lt;1ms on a local network. The request and reply are just 2 Ethernet frames.</span></div>
+          <div class="packet-field"><span class="field-name">Result:</span><span class="field-val">All future packets destined for the internet will be Ethernet-addressed to CC:DD:EE:FF:00:11 (router's MAC), with the IP header containing the actual internet destination.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-5')">
+        <div class="tl-dot" style="background:var(--blue);border-color:var(--blue)"></div>
+        <div class="tl-title"><span style="color:var(--blue)">⑤ You Open Spotify App</span> <span class="tag" style="background:rgba(88,166,255,0.2);color:var(--blue)">L7 App</span></div>
+        <div class="tl-sub">App starts, wants to connect to Spotify servers.</div>
+        <div class="tl-body" id="sp-5">
+          <div class="packet-field"><span class="field-name">App initialises:</span><span class="field-val">Spotify process starts. Needs to connect to api.spotify.com and dealer.spotify.com (WebSocket for real-time updates, play state sync).</span></div>
+          <div class="packet-field"><span class="field-name">What it needs:</span><span class="field-val">IP address for api.spotify.com. Must do DNS resolution first.</span></div>
+          <div class="packet-field"><span class="field-name">OS call:</span><span class="field-val">Spotify calls getaddrinfo("api.spotify.com") → glibc → /etc/nsswitch.conf → /etc/hosts (no match) → systemd-resolved/DNS cache (cold cache, miss) → DNS query.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-6')">
+        <div class="tl-dot" style="background:var(--teal);border-color:var(--teal)"></div>
+        <div class="tl-title"><span style="color:var(--teal)">⑥ DNS Resolution — "Where is api.spotify.com?"</span> <span class="tag" style="background:rgba(45,212,191,0.2);color:var(--teal)">L3+L4+L7</span></div>
+        <div class="tl-sub">UDP query to 8.8.8.8. Recursive resolution through root → .com → Spotify's NS.</div>
+        <div class="tl-body" id="sp-6">
+          <div class="packet-field"><span class="field-name">DNS query packet:</span><span class="field-val">Src: 192.168.1.105:54321, Dst: 8.8.8.8:53. UDP. DNS query for api.spotify.com, QTYPE=A.</span></div>
+          <div class="packet-field"><span class="field-name">L2 frame for this packet:</span><span class="field-val">Eth dst: CC:DD:EE:FF (router MAC — not 8.8.8.8's MAC, because 8.8.8.8 is not on your local network). Eth src: your MAC.</span></div>
+          <div class="packet-field"><span class="field-name">Resolver (8.8.8.8) does:</span><span class="field-val">Root → "go to .com TLD servers". TLD → "go to Spotify's NS (ns1.p34.dynect.net)". Auth NS → "api.spotify.com = 35.186.224.47, TTL=60".</span></div>
+          <div class="packet-field"><span class="field-name">Also resolves:</span><span class="field-val">accounts.spotify.com (for login), dealer.spotify.com (WebSocket), spclient.wg.spotify.com (client API), audio CDN domains like audio-fa.spotifycdn.com.</span></div>
+          <div class="packet-field"><span class="field-name">Each DNS query:</span><span class="field-val">~1 UDP packet out, ~1 UDP packet in. Round trip ~5-20ms for cached queries, ~100-300ms for cold recursive resolution.</span></div>
+          <div class="packet-field"><span class="field-name">OSI:</span><span class="field-val"><span class="osi-pill" style="background:rgba(234,179,8,0.3);color:var(--l3)">L3 IP</span> 192.168.1.105 → 8.8.8.8. <span class="osi-pill" style="background:rgba(34,197,94,0.3);color:var(--l4)">L4 UDP</span> port 53. <span class="osi-pill" style="background:rgba(236,72,153,0.3);color:var(--l7)">L7 DNS</span> protocol.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-7')">
+        <div class="tl-dot" style="background:var(--purple);border-color:var(--purple)"></div>
+        <div class="tl-title"><span style="color:var(--purple)">⑦ TCP Connection to Spotify Server</span> <span class="tag" style="background:rgba(139,92,246,0.2);color:var(--purple)">L3+L4</span></div>
+        <div class="tl-sub">3-way TCP handshake to 35.186.224.47:443.</div>
+        <div class="tl-body" id="sp-7">
+          <div class="packet-field"><span class="field-name">SYN packet (you→Spotify):</span><span class="field-val">IP src=192.168.1.105, dst=35.186.224.47. TCP: src port=52341 (random ephemeral), dst port=443. Flags: SYN. Seq=1000. Options: MSS=1460, SACK, Window Scale.</span></div>
+          <div class="packet-field"><span class="field-name">SYN-ACK (Spotify→you):</span><span class="field-val">TCP: Flags SYN+ACK. Seq=5000. Ack=1001 (confirms your SYN). Server says "I'm here, here's my sequence number."</span></div>
+          <div class="packet-field"><span class="field-name">ACK (you→Spotify):</span><span class="field-val">TCP: Flags ACK. Ack=5001. "Got your SYN-ACK." Connection ESTABLISHED.</span></div>
+          <div class="packet-field"><span class="field-name">What TCP provides:</span><span class="field-val">Ordered delivery (seq numbers). Reliability (retransmit on loss). Flow control (receiver advertises window size). Congestion control (slow start, CWND).</span></div>
+          <div class="packet-field"><span class="field-name">QUIC (modern Spotify):</span><span class="field-val">Spotify may use HTTP/3 over QUIC instead. QUIC uses UDP but builds reliability on top. Advantage: connection establishment + TLS handshake in ONE round trip (0-RTT on resumption). Faster startup.</span></div>
+          <div class="packet-field"><span class="field-name">OSI:</span><span class="field-val"><span class="osi-pill" style="background:rgba(234,179,8,0.3);color:var(--l3)">L3 IP</span> routing. <span class="osi-pill" style="background:rgba(34,197,94,0.3);color:var(--l4)">L4 TCP</span> reliable transport.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-8')">
+        <div class="tl-dot" style="background:var(--l6);border-color:var(--l6)"></div>
+        <div class="tl-title"><span style="color:var(--l6)">⑧ TLS Handshake — Encrypt the Connection</span> <span class="tag" style="background:rgba(139,92,246,0.2);color:var(--l6)">L5+L6</span></div>
+        <div class="tl-sub">TLS 1.3 handshake. Establishes encrypted channel before any Spotify data is sent.</div>
+        <div class="tl-body" id="sp-8">
+          <div class="packet-field"><span class="field-name">ClientHello:</span><span class="field-val">Spotify app sends: supported TLS versions, cipher suites (e.g. TLS_AES_256_GCM_SHA384), supported key exchange groups, random bytes, SNI extension ("api.spotify.com" — so CDN knows which cert to present).</span></div>
+          <div class="packet-field"><span class="field-name">ServerHello + Certificate:</span><span class="field-val">Server picks cipher suite, sends its X.509 certificate (contains public key + signature from CA like DigiCert). Also sends ServerFinished (TLS 1.3 merges several steps).</span></div>
+          <div class="packet-field"><span class="field-name">Certificate verification:</span><span class="field-val">Your OS checks certificate against trusted Certificate Authorities (CAs) in your OS trust store (/etc/ssl/certs on Linux). Verifies: not expired, not revoked, signed by trusted CA, hostname matches.</span></div>
+          <div class="packet-field"><span class="field-name">Key exchange (ECDHE):</span><span class="field-val">Both sides generate ephemeral Elliptic Curve Diffie-Hellman key pairs. Exchange public parts. Derive the same shared secret without ever transmitting it. Perfect forward secrecy: even if server's private key is stolen later, past sessions can't be decrypted.</span></div>
+          <div class="packet-field"><span class="field-name">After handshake:</span><span class="field-val">All traffic encrypted with AES-256-GCM. Attacker on your network sees only encrypted blobs, not Spotify requests.</span></div>
+          <div class="packet-field"><span class="field-name">OSI:</span><span class="field-val"><span class="osi-pill" style="background:rgba(6,182,212,0.3);color:var(--l5)">L5 Session</span> establishes the session. <span class="osi-pill" style="background:rgba(139,92,246,0.3);color:var(--l6)">L6 Presentation</span> handles encryption/decryption (TLS).</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-9')">
+        <div class="tl-dot" style="background:var(--l7);border-color:var(--l7)"></div>
+        <div class="tl-title"><span style="color:var(--l7)">⑨ Spotify Login — HTTPS API Call</span> <span class="tag" style="background:rgba(236,72,153,0.2);color:var(--l7)">L7 Application</span></div>
+        <div class="tl-sub">Your credentials → Spotify auth servers → OAuth token returned.</div>
+        <div class="tl-body" id="sp-9">
+          <div class="packet-field"><span class="field-name">HTTP request (inside TLS):</span><span class="field-val">POST /api/token HTTP/2. Headers: Content-Type: application/x-www-form-urlencoded. Body: grant_type=password&username=raj@...&password=... (all encrypted by TLS).</span></div>
+          <div class="packet-field"><span class="field-name">Spotify responds:</span><span class="field-val">200 OK. JSON body: { "access_token": "BQD3...", "expires_in": 3600, "refresh_token": "AQD..." }. This OAuth token is used for all subsequent requests.</span></div>
+          <div class="packet-field"><span class="field-name">Packets involved:</span><span class="field-val">HTTP/2 (multiplexed streams over one TCP connection). Multiple requests can be in-flight simultaneously. No head-of-line blocking per stream.</span></div>
+          <div class="packet-field"><span class="field-name">OSI:</span><span class="field-val"><span class="osi-pill" style="background:rgba(236,72,153,0.3);color:var(--l7)">L7 HTTP/2</span> over <span class="osi-pill" style="background:rgba(139,92,246,0.3);color:var(--l6)">L6 TLS</span> over <span class="osi-pill" style="background:rgba(34,197,94,0.3);color:var(--l4)">L4 TCP</span> over <span class="osi-pill" style="background:rgba(234,179,8,0.3);color:var(--l3)">L3 IP</span>.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-10')">
+        <div class="tl-dot" style="background:var(--yellow);border-color:var(--yellow)"></div>
+        <div class="tl-title"><span style="color:var(--yellow)">⑩ Browse + Tap Download Button</span> <span class="tag" style="background:rgba(210,153,34,0.2);color:var(--yellow)">L7 App</span></div>
+        <div class="tl-sub">Spotify app requests song metadata + download URL from its API.</div>
+        <div class="tl-body" id="sp-10">
+          <div class="packet-field"><span class="field-name">Metadata request:</span><span class="field-val">GET /v1/tracks/{track_id} HTTP/2. Authorization: Bearer {access_token}. Returns JSON with track name, artists, album art URL, available markets.</span></div>
+          <div class="packet-field"><span class="field-name">Download initiation:</span><span class="field-val">POST /melody/v1/item/file-manifest to spclient.wg.spotify.com. Response: list of CDN URLs where the encrypted audio file is hosted (e.g. audio-fa.spotifycdn.com/...).</span></div>
+          <div class="packet-field"><span class="field-name">CDN selection:</span><span class="field-val">Spotify uses Akamai, Fastly, or their own CDN. The closest CDN server is chosen (via CNAME + anycast DNS). New DNS lookup needed for the CDN hostname.</span></div>
+          <div class="packet-field"><span class="field-name">New TCP+TLS to CDN:</span><span class="field-val">Same process as steps 7+8 but to the CDN server. A new TLS session is established. Another TCP 3-way handshake. Another TLS 1.3 handshake.</span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-11')">
+        <div class="tl-dot" style="background:var(--green);border-color:var(--green)"></div>
+        <div class="tl-title"><span style="color:var(--green)">⑪ Song File Downloaded — HTTPS GET</span> <span class="tag" style="background:rgba(63,185,80,0.2);color:var(--green)">All Layers</span></div>
+        <div class="tl-sub">The actual song bytes flow. This is where FTP/HTTP concepts apply.</div>
+        <div class="tl-body" id="sp-11">
+          <div class="packet-field"><span class="field-name">Protocol used:</span><span class="field-val">HTTPS (HTTP/2 or HTTP/3 over TLS) — NOT FTP. Modern apps use HTTPS for downloads. FTP would be plaintext and has no built-in encryption. SFTP/FTPS are encrypted but rarely used by consumer apps.</span></div>
+          <div class="packet-field"><span class="field-name">HTTP GET request:</span><span class="field-val">GET /audio-file/cdntracks/... HTTP/2. Range: bytes=0-4999999 (range requests allow resuming partial downloads).</span></div>
+          <div class="packet-field"><span class="field-name">CDN response:</span><span class="field-val">206 Partial Content. Content-Type: audio/ogg (Vorbis) or audio/mp4 (AAC). Content-Length: 5000000. Body: encrypted song bytes (Spotify uses its own encryption on top of TLS).</span></div>
+          <div class="packet-field"><span class="field-name">TCP segment flow:</span><span class="field-val">Song is ~5MB. With 1460-byte TCP MSS (max segment size), that's ~3500 TCP segments. Each segment: Eth header + IP header + TCP header + 1460 bytes data. TCP slow start → congestion window grows → reaches full bandwidth.</span></div>
+          <div class="packet-field"><span class="field-name">Packet path (one segment):</span><span class="field-val">CDN server → ISP backbone → your ISP → your router → WiFi → your laptop NIC → NIC driver → IP stack → TCP stack → TLS decryption → HTTP/2 parser → Spotify app → decrypted song bytes → written to disk.</span></div>
+          <div class="packet-field"><span class="field-name">Where TFTP fits (it doesn't here):</span><span class="field-val">TFTP (Trivial FTP, UDP port 69) is NOT used by Spotify. TFTP is used for PXE network booting — when a diskless machine boots from the network, it gets an IP via DHCP, then TFTP-downloads a boot image. No authentication, no encryption, just simple file transfer. Used in corporate imaging, router firmware updates, IP phones.</span></div>
+          <div class="packet-field"><span class="field-name">OSI — ALL LAYERS:</span><span class="field-val">
+            <span class="osi-pill" style="background:rgba(236,72,153,0.3);color:var(--l7)">L7: HTTPS/HTTP2</span>
+            <span class="osi-pill" style="background:rgba(139,92,246,0.3);color:var(--l6)">L6: TLS decryption</span>
+            <span class="osi-pill" style="background:rgba(6,182,212,0.3);color:var(--l5)">L5: TLS session</span>
+            <span class="osi-pill" style="background:rgba(34,197,94,0.3);color:var(--l4)">L4: TCP segments, ACKs</span>
+            <span class="osi-pill" style="background:rgba(234,179,8,0.3);color:var(--l3)">L3: IP routing</span>
+            <span class="osi-pill" style="background:rgba(249,115,22,0.3);color:var(--l2)">L2: Ethernet/WiFi frames</span>
+            <span class="osi-pill" style="background:rgba(239,68,68,0.3);color:var(--l1)">L1: radio waves/electrical signals</span>
+          </span></div>
+        </div>
+      </div>
+
+      <div class="tl-item" onclick="toggleFlow('sp-12')">
+        <div class="tl-dot" style="background:var(--pink);border-color:var(--pink)"></div>
+        <div class="tl-title"><span style="color:var(--pink)">⑫ 🎵 Song is saved. Download complete!</span></div>
+        <div class="tl-sub">Decrypted, decoded, saved to local storage.</div>
+        <div class="tl-body" id="sp-12">
+          <div class="packet-field"><span class="field-name">TLS decrypted:</span><span class="field-val">AES-256-GCM decryption layer strips TLS. Raw Spotify-encrypted bytes remain.</span></div>
+          <div class="packet-field"><span class="field-name">Spotify DRM decrypted:</span><span class="field-val">Spotify uses its own encryption (Widevine DRM) on top. The access token authorises decryption. Song bytes are now raw OGG Vorbis or AAC audio.</span></div>
+          <div class="packet-field"><span class="field-name">Written to disk:</span><span class="field-val">Stored in Spotify's local cache directory (encrypted with device key). When you play it offline, no network call is made — local file is read, decrypted, decoded to PCM audio, sent to audio driver → speakers.</span></div>
+          <div class="packet-field"><span class="field-name">Total network events:</span><span class="field-val">1 ARP (gateway MAC). 4 DHCP (DORA). ~5 DNS queries (Spotify domains). 2-3 TCP handshakes. 2-3 TLS handshakes. ~3500 TCP segments for the song file. ~3500 ACK packets back. Plus keepalives, WebSocket pings, etc.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FTP vs HTTPS comparison -->
+  <div class="card">
+    <h2>📂 FTP vs HTTPS vs TFTP — When Each Is Used</h2>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:500px">
+        <thead>
+          <tr style="background:var(--card2)">
+            <th style="padding:8px;text-align:left;border:1px solid var(--border);color:var(--muted)">Protocol</th>
+            <th style="padding:8px;text-align:left;border:1px solid var(--border);color:var(--muted)">Transport</th>
+            <th style="padding:8px;text-align:left;border:1px solid var(--border);color:var(--muted)">Port</th>
+            <th style="padding:8px;text-align:left;border:1px solid var(--border);color:var(--muted)">Encryption</th>
+            <th style="padding:8px;text-align:left;border:1px solid var(--border);color:var(--muted)">Used For</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--orange);font-weight:700">FTP</td>
+            <td style="padding:8px;border:1px solid var(--border)">TCP</td>
+            <td style="padding:8px;border:1px solid var(--border)">21 (control), 20 (data)</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--red)">None (plaintext)</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--muted)">Legacy file transfers, old web hosting</td>
+          </tr>
+          <tr style="background:var(--card2)">
+            <td style="padding:8px;border:1px solid var(--border);color:var(--green);font-weight:700">FTPS</td>
+            <td style="padding:8px;border:1px solid var(--border)">TCP</td>
+            <td style="padding:8px;border:1px solid var(--border)">990 (implicit) / 21 (explicit)</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--green)">TLS</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--muted)">Secure FTP, financial data transfers</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--blue);font-weight:700">SFTP</td>
+            <td style="padding:8px;border:1px solid var(--border)">TCP over SSH</td>
+            <td style="padding:8px;border:1px solid var(--border)">22</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--green)">SSH</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--muted)">Secure file transfer, server management</td>
+          </tr>
+          <tr style="background:var(--card2)">
+            <td style="padding:8px;border:1px solid var(--border);color:var(--yellow);font-weight:700">TFTP</td>
+            <td style="padding:8px;border:1px solid var(--border)">UDP</td>
+            <td style="padding:8px;border:1px solid var(--border)">69</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--red)">None</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--muted)">PXE boot, router firmware, IP phones</td>
+          </tr>
+          <tr>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--pink);font-weight:700">HTTPS</td>
+            <td style="padding:8px;border:1px solid var(--border)">TCP (or QUIC)</td>
+            <td style="padding:8px;border:1px solid var(--border)">443</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--green)">TLS 1.3</td>
+            <td style="padding:8px;border:1px solid var(--border);color:var(--muted)">Everything modern — Spotify, Netflix, all web</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="info-box" style="margin-top:12px">
+      <strong>Why Spotify uses HTTPS not FTP:</strong> HTTPS is the universal standard for secure application data transfer. It has authentication (TLS certificates), encryption (AES-256), works through firewalls (port 443 is always open), and supports HTTP/2 multiplexing (download song metadata + audio + images over ONE connection simultaneously).
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     QUIZ
+════════════════════════════════════════════════ -->
+<section id="quiz" class="section">
+  <div class="hero" style="padding:20px">
+    <h1 style="font-size:20px">🧠 Test Your Knowledge</h1>
+    <p>Real understanding questions. Tap an answer to see if you're right.</p>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q1">
+      <div class="q-text">1. Your laptop sends an ARP REQUEST. The destination Ethernet MAC is FF:FF:FF:FF:FF:FF. Why?</div>
+      <button class="quiz-opt" onclick="answer('q1','a')">a) Because we don't know the target's IP yet</button>
+      <button class="quiz-opt" onclick="answer('q1','b')">b) Because ARP always uses broadcast — it doesn't know the MAC yet and needs EVERYONE on the network to see the request</button>
+      <button class="quiz-opt" onclick="answer('q1','c')">c) Because FF:FF:FF:FF:FF:FF is the router's MAC</button>
+      <button class="quiz-opt" onclick="answer('q1','d')">d) Because ARP uses IPv6</button>
+      <div class="quiz-feedback" id="q1-fb"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q2">
+      <div class="q-text">2. During DHCP DISCOVER, the IP source address is 0.0.0.0. Why not the client's IP?</div>
+      <button class="quiz-opt" onclick="answer('q2','a')">a) It's a bug in the protocol</button>
+      <button class="quiz-opt" onclick="answer('q2','b')">b) The client is using IPv6 instead</button>
+      <button class="quiz-opt" onclick="answer('q2','c')">c) The client has NO IP address yet — DHCP is the process of getting one</button>
+      <button class="quiz-opt" onclick="answer('q2','d')">d) 0.0.0.0 means "all addresses"</button>
+      <div class="quiz-feedback" id="q2-fb"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q3">
+      <div class="q-text">3. You type "spotify.com" in a browser. What is the FIRST thing that happens before any DNS packet is sent?</div>
+      <button class="quiz-opt" onclick="answer('q3','a')">a) A TCP connection to Spotify's servers</button>
+      <button class="quiz-opt" onclick="answer('q3','b')">b) Browser checks its own DNS cache, then OS checks /etc/hosts, then OS DNS cache</button>
+      <button class="quiz-opt" onclick="answer('q3','c')">c) ARP request for Spotify's MAC address</button>
+      <button class="quiz-opt" onclick="answer('q3','d')">d) TLS handshake with Spotify</button>
+      <div class="quiz-feedback" id="q3-fb"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q4">
+      <div class="q-text">4. A DNS query goes to your router (192.168.1.1). What MAC address is in the Ethernet DESTINATION field of that packet?</div>
+      <button class="quiz-opt" onclick="answer('q4','a')">a) The MAC address of 8.8.8.8 (Google's DNS server)</button>
+      <button class="quiz-opt" onclick="answer('q4','b')">b) FF:FF:FF:FF:FF:FF (broadcast)</button>
+      <button class="quiz-opt" onclick="answer('q4','c')">c) Your router's MAC address — because it's the next hop on your local network</button>
+      <button class="quiz-opt" onclick="answer('q4','d')">d) Your own laptop's MAC</button>
+      <div class="quiz-feedback" id="q4-fb"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q5">
+      <div class="q-text">5. In the DHCP process, why is DHCPREQUEST sent as a BROADCAST even though the client already received an offer and knows the server's IP?</div>
+      <button class="quiz-opt" onclick="answer('q5','a')">a) Because DHCP always uses broadcast — it doesn't support unicast</button>
+      <button class="quiz-opt" onclick="answer('q5','b')">b) To notify ALL DHCP servers of the choice — so unchosen servers can release their reserved IPs</button>
+      <button class="quiz-opt" onclick="answer('q5','c')">c) Because the client still has no IP, so it can't send unicast</button>
+      <button class="quiz-opt" onclick="answer('q5','d')">d) To prevent ARP spoofing</button>
+      <div class="quiz-feedback" id="q5-fb"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q6">
+      <div class="q-text">6. What does "TTL" mean in a DNS record, and what happens when it reaches zero?</div>
+      <button class="quiz-opt" onclick="answer('q6','a')">a) Time To Live — how many hops the packet can make. When zero: packet dropped.</button>
+      <button class="quiz-opt" onclick="answer('q6','b')">b) Time To Live — how many seconds resolvers should cache the record. When zero: cached entry expires, resolver must query again.</button>
+      <button class="quiz-opt" onclick="answer('q6','c')">c) Transfer Throttle Limit — how fast DNS responses can be sent</button>
+      <button class="quiz-opt" onclick="answer('q6','d')">d) It's the same as TCP TTL — prevents routing loops</button>
+      <div class="quiz-feedback" id="q6-fb"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q7">
+      <div class="q-text">7. When Spotify downloads a song to your device, which protocol is actually used for the file transfer?</div>
+      <button class="quiz-opt" onclick="answer('q7','a')">a) FTP (File Transfer Protocol) on port 21</button>
+      <button class="quiz-opt" onclick="answer('q7','b')">b) TFTP (Trivial FTP) on UDP port 69</button>
+      <button class="quiz-opt" onclick="answer('q7','c')">c) HTTPS (HTTP/2 or HTTP/3 over TLS) on port 443</button>
+      <button class="quiz-opt" onclick="answer('q7','d')">d) BitTorrent P2P protocol</button>
+      <div class="quiz-feedback" id="q7-fb"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="quiz-q" id="q8">
+      <div class="q-text">8. A Gratuitous ARP is dangerous because... (and what attack does it enable?)</div>
+      <button class="quiz-opt" onclick="answer('q8','a')">a) It uses too much bandwidth, causing network congestion</button>
+      <button class="quiz-opt" onclick="answer('q8','b')">b) ARP has no authentication — any device can broadcast a fake GARP claiming a different IP's MAC, enabling ARP poisoning / Man-in-the-Middle attacks</button>
+      <button class="quiz-opt" onclick="answer('q8','c')">c) It conflicts with DHCP and causes IP address assignment failures</button>
+      <button class="quiz-opt" onclick="answer('q8','d')">d) GARPs are always safe — they're only sent by legitimate devices</button>
+      <div class="quiz-feedback" id="q8-fb"></div>
+    </div>
+  </div>
+
+  <div id="quiz-score" style="display:none;text-align:center;padding:20px;background:var(--card2);border-radius:12px;margin-top:16px">
+    <div style="font-size:40px" id="score-emoji">🎉</div>
+    <div style="font-size:24px;font-weight:800;margin:10px 0" id="score-text"></div>
+    <div style="color:var(--muted);font-size:13px" id="score-sub"></div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════════════ -->
+<script>
+// Nav
+function showSection(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const btns = document.querySelectorAll('.nav-btn');
+  btns.forEach(b => { if(b.getAttribute('onclick') && b.getAttribute('onclick').includes(id)) b.classList.add('active'); });
+  window.scrollTo(0, 0);
+}
+
+// OSI toggles
+function toggleOSI(n) {
+  const el = document.getElementById('osi-' + n);
+  el.classList.toggle('open');
+}
+
+// Flow toggles
+function toggleFlow(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.classList.toggle('open');
+}
+
+// Packet popup — only one open at a time per card
+function showPacket(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const wasOpen = el.classList.contains('open');
+  // Close siblings
+  const siblings = el.parentElement.querySelectorAll('.packet-popup');
+  siblings.forEach(s => s.classList.remove('open'));
+  if (!wasOpen) el.classList.add('open');
+}
+
+// Tabs
+function switchTab(containerId, tabId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('tab-' + tabId);
+  if (target) target.classList.add('active');
+  // Update buttons
+  const card = container.closest('.card');
+  if (card) {
+    card.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    const btns = card.querySelectorAll('.tab-btn');
+    btns.forEach(b => {
+      if (b.getAttribute('onclick') && b.getAttribute('onclick').includes("'" + tabId + "'")) {
+        b.classList.add('active');
+      }
+    });
+  }
+}
+
+// Quiz
+const answers = { q1:'b', q2:'c', q3:'b', q4:'c', q5:'b', q6:'b', q7:'c', q8:'b' };
+const explanations = {
+  q1: "Correct! ARP is asking 'Who has this IP?' — since we don't know the MAC, we broadcast to everyone on the segment. All devices receive it, only the one with the matching IP replies.",
+  q2: "Correct! DHCP is literally how you GET an IP. You can't have a source IP of your new IP before you receive it. 0.0.0.0 means 'I have no IP address'.",
+  q3: "Correct! DNS lookups are expensive (network round trips). Both browser and OS maintain caches. /etc/hosts is checked before any DNS query is sent. The full chain is: browser cache → /etc/hosts → OS DNS cache → DNS query.",
+  q4: "Correct! Even though the IP destination is 8.8.8.8, the Ethernet frame must be physically delivered to your router (the next hop). Your router's MAC is what's needed at L2. The router then strips the L2 header and routes the IP packet onward.",
+  q5: "Both B and C are partially right, but B is the KEY reason! The broadcast allows ALL servers to know the decision. The client does still have no IP (C is also true), but the PRIMARY reason to broadcast (not unicast to the chosen server) is so unchosen servers release their reserved IPs.",
+  q6: "Correct! DNS TTL is about caching duration, not routing. Compare with IP TTL (header field, counts down per router hop, prevents routing loops). DNS TTL counts down in seconds from when the resolver cached the record.",
+  q7: "Correct! Spotify uses HTTPS — HTTP/2 or HTTP/3 (QUIC) over TLS 1.3. Port 443. FTP is legacy, plaintext, rarely used by modern apps. TFTP is only for network booting/firmware.",
+  q8: "Correct! ARP has zero authentication by design — it was created in 1982 when security wasn't a priority. Fake GARPs can poison every device's ARP cache on the segment, redirecting traffic through the attacker (MITM attack)."
+};
+const wrongExplanations = {
+  q1: "Not quite. The reason is simpler: we're asking EVERYONE because we don't know WHO has this IP. It's like shouting in a room asking 'Is there a doctor here?'",
+  q2: "Not quite. The real reason is the client literally has no IP address yet — DHCP is how it gets one. It can't put a 'source IP' it doesn't have yet.",
+  q3: "Not quite. No network packets are involved yet at that point. The browser first checks its own internal cache, then the OS checks local files (/etc/hosts), then the OS cache. Network calls only happen if all local caches miss.",
+  q4: "Not quite. Remember: L3 IP addresses route across the internet, but L2 MAC addresses only travel ONE network segment. You can't put 8.8.8.8's MAC — it's not on your local network. The Ethernet frame goes to your router's MAC.",
+  q5: "Think about what happens when multiple DHCP servers all sent you offers. They all reserved an IP for you. If you just unicast to the chosen server, the other servers never find out they weren't chosen — they keep holding those IPs reserved forever.",
+  q6: "Look again — there are TWO different TTLs in networking: (1) IP header TTL (counts down per router hop, prevents routing loops) and (2) DNS record TTL (counts down in seconds, controls cache duration). This question is about DNS TTL.",
+  q7: "TFTP is only used for very specific purposes: PXE network booting, router firmware updates, IP phone config. Spotify uses HTTPS like all modern web applications — encrypted, authenticated, works through firewalls.",
+  q8: "The real danger is about SECURITY. ARP was designed with zero authentication, so anyone can send fake ARP replies claiming any IP→MAC mapping, poisoning caches across the whole network segment."
+};
+
+let answered = {};
+let score = 0;
+
+function answer(qid, chosen) {
+  if (answered[qid]) return;
+  answered[qid] = true;
+  const correct = answers[qid];
+  const fb = document.getElementById(qid + '-fb');
+  const opts = document.querySelectorAll('#' + qid + ' .quiz-opt');
+  const letters = ['a','b','c','d'];
+
+  opts.forEach((opt, i) => {
+    opt.disabled = true;
+    if (letters[i] === correct) opt.classList.add('correct');
+    else if (letters[i] === chosen && chosen !== correct) opt.classList.add('wrong');
+  });
+
+  if (chosen === correct) {
+    score++;
+    fb.className = 'quiz-feedback show good';
+    fb.textContent = '✅ ' + explanations[qid];
+  } else {
+    fb.className = 'quiz-feedback show bad';
+    fb.textContent = '❌ ' + wrongExplanations[qid] + ' (' + explanations[qid] + ')';
+  }
+
+  if (Object.keys(answered).length === 8) {
+    const scoreDiv = document.getElementById('quiz-score');
+    scoreDiv.style.display = 'block';
+    const pct = Math.round((score / 8) * 100);
+    document.getElementById('score-text').textContent = score + ' / 8 — ' + pct + '%';
+    let emoji, sub;
+    if (score === 8) { emoji = '🏆'; sub = 'Perfect! You understand these protocols deeply. Go build them.'; }
+    else if (score >= 6) { emoji = '🎉'; sub = 'Great work! Review the sections you missed and you\'ll nail it.'; }
+    else if (score >= 4) { emoji = '📚'; sub = 'Good start! Go back through the flowcharts for the ones you missed.'; }
+    else { emoji = '🔄'; sub = 'Keep going — re-read the sections and try again. The concepts click with repetition.'; }
+    document.getElementById('score-emoji').textContent = emoji;
+    document.getElementById('score-sub').textContent = sub;
+    scoreDiv.scrollIntoView({behavior:'smooth'});
+  }
+}
+</script>
+</body>
+</html>
